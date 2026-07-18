@@ -38,7 +38,7 @@ let appState = {
   lastFreeWheelSpinDateUTC: null, // تاریخ UTC آخرین اسپین به فرمت "YYYY-MM-DD"
   freeWheelSpinCount: 0, // تعداد کل اسپین‌هایی که تا الان ثبت شده
   freeWheelHistory: [], // آرایه‌ی رکوردهای هر اسپین: {dateUTC, timestamp, prizeCoins}
-  lang: "fa",
+  lang: "en",
   gamesPlayed: 7, // چند دست از «اتاق سکه» شرکت کرده (برای فرمول لیدربرد) — TODO (کاربر): از دیتابیس بشمار
   // تزئینات پروفایل خریداری‌شده (خالی/پیش‌فرض = چیزی خریداری نشده)
   profileFrame: null, // مقدار = id از CUSTOMIZATION_ITEMS دسته frame
