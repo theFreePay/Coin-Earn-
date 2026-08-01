@@ -1,0 +1,1059 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>StarMate | Earn Points</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
+<script src="https://sad.adsgram.ai/js/sad.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+  :root{
+    --blue-900:#0f2050;
+    --blue-700:#25428c;
+    --blue-500:#3f6fd4;
+    --ink:#16224a;
+    --ink-soft:#5c6a92;
+    --gold:#ffb648;
+    --gold-deep:#ff8f2e;
+    --pink:#ff6fa5;
+    --white:#ffffff;
+    --shadow-soft: 0 10px 30px -12px rgba(15,32,80,0.22);
+    --radius-lg: 26px;
+    --radius-md: 18px;
+  }
+  *{box-sizing:border-box; margin:0; padding:0;}
+  html,body{height:100%;}
+  body{
+    font-family:'Manrope', sans-serif;
+    background:linear-gradient(180deg, #eef4fd 0%, #e3edfc 100%);
+    min-height:100vh;
+    color:var(--ink);
+    display:flex;
+    justify-content:center;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .app{
+    width:100%;
+    max-width:420px;
+    display:flex;
+    flex-direction:column;
+    height:100vh;
+    max-height:100vh;
+  }
+
+  /* ---------- Header ---------- */
+  .topbar{
+    display:flex; align-items:center; justify-content:space-between;
+    padding:12px 16px 6px; flex-shrink:0;
+  }
+  .brand{display:flex; align-items:center; gap:8px; font-weight:800; font-size:16px; letter-spacing:-0.3px;}
+  .brand .dot{
+    width:9px; height:9px; border-radius:50%;
+    background:linear-gradient(135deg, var(--gold), var(--pink));
+    box-shadow:0 0 0 4px rgba(255,182,72,0.18);
+  }
+  .lang-toggle{
+    display:flex; align-items:center; justify-content:center;
+    width:36px; height:36px; background:var(--white); border:none; border-radius:50%;
+    font-size:17px; cursor:pointer; box-shadow:var(--shadow-soft); transition: transform .15s ease;
+  }
+  .lang-toggle:active{transform:scale(0.9);}
+
+  /* ---------- HERO ---------- */
+  .hero{
+    position:relative;
+    flex:0 0 36%;
+    display:flex; flex-direction:column; justify-content:center;
+    margin:0 12px 10px;
+    background:
+      radial-gradient(160px 160px at 88% 0%, rgba(255,182,72,0.16), transparent),
+      radial-gradient(200px 200px at 5% 100%, rgba(255,111,165,0.14), transparent),
+      linear-gradient(165deg, var(--blue-900) 0%, var(--blue-700) 65%, var(--blue-500) 130%);
+    border-radius:var(--radius-lg);
+    padding:14px 18px 14px;
+    box-shadow:0 18px 40px -16px rgba(15,32,80,0.45);
+    overflow:hidden;
+    color:#fff;
+  }
+  .hero-top{display:flex; justify-content:space-between; align-items:flex-start; position:relative; z-index:1;}
+  .hero-label{font-size:11.5px; font-weight:700; color:#c6d4f5;}
+  .hero-sub{font-size:10px; color:#94a5d6; margin-top:2px;}
+  .today-pill{
+    background:rgba(255,255,255,0.12); color:#ffd9a0; font-size:10.5px; font-weight:800;
+    padding:5px 10px; border-radius:100px; backdrop-filter:blur(4px); white-space:nowrap;
+  }
+
+  .gauge-wrap{display:flex; flex-direction:column; align-items:center; margin:0; position:relative; z-index:1;}
+  .star-box{position:relative; width:90px; height:90px;}
+  .star-svg{width:100%; height:100%; display:block; overflow:visible;}
+  .star-fill-rect{transition: transform 1s cubic-bezier(.22,.9,.28,1);}
+  .star-number{
+    position:absolute; inset:0; display:flex; align-items:center; justify-content:center;
+    font-size:26px; font-weight:800; color:#fff; text-shadow:0 2px 10px rgba(0,0,0,0.25);
+    letter-spacing:-1px; transform-origin:center;
+  }
+  .star-number.pop{animation: popScale .5s cubic-bezier(.22,1.4,.4,1);}
+  @keyframes popScale{0%{transform:scale(1);}40%{transform:scale(1.35);}100%{transform:scale(1);}}
+  .gauge-caption{font-size:10.5px; color:#aebbe6; margin-top:1px; font-weight:600;}
+
+  .claim-btn{
+    display:block; width:100%; border:none; font-family:inherit; font-weight:800; font-size:12px;
+    padding:9px; border-radius:14px; margin-top:8px; cursor:pointer; position:relative; z-index:1;
+    transition: all .25s ease;
+  }
+  .claim-btn.locked{background:rgba(255,255,255,0.08); color:#8f9dcc; border:1px solid rgba(255,255,255,0.14); cursor:not-allowed;}
+  .claim-btn.ready{background:linear-gradient(135deg, var(--gold), var(--gold-deep)); color:#3a2200; box-shadow:0 10px 22px -8px rgba(255,143,46,0.7);}
+  .claim-btn.ready:active{transform:scale(0.97);}
+  .claim-caption{text-align:center; font-size:10px; color:#9fb0dd; margin-top:5px; position:relative; z-index:1;}
+  .claim-caption b{color:#ffd9a0;}
+  .claim-note{
+    margin-top:7px; background:rgba(255,111,165,0.14); border:1px solid rgba(255,111,165,0.35);
+    color:#ffd7e8; font-size:10px; font-weight:600; text-align:center; padding:7px 10px; border-radius:12px;
+    position:relative; z-index:1; display:none;
+  }
+  .claim-note.show{display:block; animation: fadeSlide .3s ease;}
+  @keyframes fadeSlide{from{opacity:0; transform:translateY(-4px);} to{opacity:1; transform:translateY(0);}}
+
+  /* ---------- Special task (galaxy) ---------- */
+  .special-wrap{margin:0 12px 10px; flex-shrink:0;}
+  .special-label{
+    display:flex; align-items:center; gap:5px;
+    font-size:11px; font-weight:800; color:var(--ink-soft);
+    margin-bottom:6px; padding:0 4px;
+  }
+  .special-label .flame{color:var(--gold-deep);}
+  .special-task{
+    position:relative;
+    display:flex; align-items:center; gap:12px;
+    border-radius:18px;
+    padding:13px 14px;
+    background: radial-gradient(120% 90% at 25% 0%, #001450 0%, #000022 65%);
+    box-shadow:0 14px 28px -14px rgba(0,0,30,0.65);
+    overflow:hidden;
+  }
+  .space-dot{
+    position:absolute; width:2px; height:2px; background:#fff; border-radius:50%;
+    box-shadow:0 0 4px 1px rgba(255,255,255,0.85);
+    opacity:0; animation: starDrift 4.5s ease-in-out infinite;
+  }
+  .space-dot:nth-of-type(1){top:18%; left:12%; animation-delay:0s;}
+  .space-dot:nth-of-type(2){top:65%; left:22%; animation-delay:1.1s;}
+  .space-dot:nth-of-type(3){top:30%; left:48%; animation-delay:2.3s;}
+  .space-dot:nth-of-type(4){top:78%; left:60%; animation-delay:0.6s;}
+  .space-dot:nth-of-type(5){top:12%; left:78%; animation-delay:1.8s;}
+  .space-dot:nth-of-type(6){top:55%; left:88%; animation-delay:3s;}
+  @keyframes starDrift{
+    0%{transform:translate(0,0); opacity:0;}
+    12%{opacity:1;}
+    55%{opacity:0.55;}
+    100%{transform:translate(12px,-9px); opacity:0;}
+  }
+  .comet{
+    position:absolute; width:3px; height:3px; border-radius:50%; background:#fff;
+    box-shadow:-10px 2px 8px 1px rgba(255,255,255,0.55);
+    top:20%; left:-8%; opacity:0;
+    animation: comet 6s linear infinite; animation-delay:1.5s;
+  }
+  @keyframes comet{
+    0%{transform:translate(0,0); opacity:0;}
+    3%{opacity:1;}
+    18%{transform:translate(160px,70px); opacity:0;}
+    100%{opacity:0;}
+  }
+  .special-icon{
+    position:relative; z-index:1; flex-shrink:0;
+    width:44px; height:44px; border-radius:13px;
+    background:rgba(255,255,255,0.08); border:1px solid rgba(255,255,255,0.16);
+    display:flex; align-items:center; justify-content:center; font-size:19px;
+  }
+  .special-info{flex:1; min-width:0; position:relative; z-index:1;}
+  .special-title{
+    font-size:13.5px; font-weight:800;
+    background: linear-gradient(90deg, #ffb648, #fff3d0, #ffb648);
+    background-size:200% auto;
+    -webkit-background-clip:text; background-clip:text; color:transparent;
+    animation: goldShimmer 3s ease-in-out infinite, goldPulse 2.4s ease-in-out infinite;
+    margin-bottom:3px; display:inline-block;
+  }
+  @keyframes goldShimmer{0%{background-position:0% center;}100%{background-position:200% center;}}
+  @keyframes goldPulse{0%,100%{filter:drop-shadow(0 0 2px rgba(255,182,72,0.25));}50%{filter:drop-shadow(0 0 9px rgba(255,182,72,0.85));}}
+  .special-meta{font-size:10.5px; color:#a9b4de;}
+  .special-reward{color:#ffd166; font-weight:800;}
+  .special-btn{
+    position:relative; z-index:1; flex-shrink:0; border:none; font-family:inherit; font-weight:800;
+    font-size:11px; padding:9px 14px; border-radius:12px; min-width:64px; cursor:pointer;
+    background:linear-gradient(135deg, var(--gold), var(--gold-deep)); color:#3a2200;
+    box-shadow:0 6px 14px -6px rgba(255,182,72,0.6); transition: transform .15s ease;
+  }
+  .special-btn:active{transform:scale(0.92);}
+  .special-task.done{opacity:0.55;}
+  .special-task.done .special-btn{background:#3a3a55; color:#c7cdea; box-shadow:none;}
+
+  /* special task locked (no real CPX survey loaded yet) */
+  .special-btn:disabled{
+    background:rgba(255,255,255,0.10); color:#8f9dcc; box-shadow:none; cursor:not-allowed;
+  }
+  .special-btn:disabled:active{transform:none;}
+
+  /* sparkle badge — shows once a real CPX survey is ready, blinks to draw attention */
+  .special-sparkle{
+    position:relative; z-index:1; flex-shrink:0; font-size:15px;
+    margin-inline-end:-2px; display:none; line-height:1;
+    animation: sparkleBlink 1.3s ease-in-out infinite;
+  }
+  .special-sparkle.show{display:inline-block;}
+  @keyframes sparkleBlink{
+    0%,100%{opacity:0.35; transform:scale(0.85) rotate(0deg); filter:drop-shadow(0 0 0 rgba(255,209,102,0));}
+    50%{opacity:1; transform:scale(1.25) rotate(12deg); filter:drop-shadow(0 0 6px rgba(255,209,102,0.9));}
+  }
+
+  /* ---------- Real Adsgram Task widget (adsgram-task web component) ---------- */
+  .task.ag-task-wrap{padding:0; border:none; background:none; box-shadow:none; overflow:visible;}
+  .ag-task-el{
+    display:block; width:100%;
+    --adsgram-task-background: var(--white);
+    --adsgram-task-border-radius: var(--radius-md);
+    --adsgram-task-padding: 12px;
+    --adsgram-task-box-shadow: var(--shadow-soft);
+    --adsgram-task-font-size: 13px;
+    --adsgram-task-icon-size: 42px;
+    --adsgram-task-icon-border-radius: 12px;
+    --adsgram-task-icon-title-gap: 12px;
+    --adsgram-task-button-width: auto;
+  }
+  .ag-task-reward{font-size:11px; font-weight:800; color:var(--gold-deep);}
+  .ag-task-btn{
+    border:none; font-family:inherit; font-weight:800; font-size:11px;
+    padding:9px 14px; border-radius:12px;
+    background:linear-gradient(135deg, var(--pink), #ff8fb8); color:#fff;
+    cursor:pointer; min-width:64px; text-align:center;
+  }
+  .ag-task-btn-claim{background:linear-gradient(135deg, var(--gold), var(--gold-deep)); color:#3a2200;}
+  .ag-task-btn-done{background:#e9f8f0; color:#2fa86a; cursor:default;}
+
+  .task-btn:disabled{
+    background:#e7ebf5; color:#9aa6c8; box-shadow:none; cursor:not-allowed;
+  }
+  .task-btn:disabled:active{transform:none;}
+  .hidden-task{display:none !important;}
+
+  /* ---------- Section heading ---------- */
+  .section-head{
+    display:flex; align-items:baseline; justify-content:space-between;
+    padding:0 20px; flex-shrink:0; margin-bottom:8px;
+  }
+  .section-title{font-size:14.5px; font-weight:800;}
+  .section-count{
+    font-size:11px; font-weight:700; color:var(--ink-soft); background:var(--white);
+    padding:3px 10px; border-radius:100px; box-shadow:var(--shadow-soft);
+  }
+
+  /* ---------- Scrollable regular task list ---------- */
+  .task-scroll{
+    flex:1 1 auto; overflow-y:auto; padding:0 12px 16px;
+    -webkit-overflow-scrolling:touch; scrollbar-width:thin; scrollbar-color:#c7d5f2 transparent;
+  }
+  .task-scroll::-webkit-scrollbar{width:5px;}
+  .task-scroll::-webkit-scrollbar-thumb{background:#c7d5f2; border-radius:10px;}
+
+  .tasks{display:flex; flex-direction:column; gap:10px;}
+  .task{
+    display:flex; align-items:center; gap:12px;
+    background:var(--white); border-radius:var(--radius-md); padding:12px;
+    box-shadow:var(--shadow-soft); border:1px solid rgba(255,255,255,0.7);
+    position:relative; overflow:hidden;
+    transition: transform .35s cubic-bezier(.22,.9,.28,1), opacity .35s ease;
+  }
+  .task.done{opacity:0.45;}
+  .task.done .task-btn{background:#e9f8f0; color:#2fa86a;}
+  .task.entering{animation: taskIn .4s ease;}
+  @keyframes taskIn{from{opacity:0; transform:translateY(6px);} to{opacity:1; transform:translateY(0);}}
+  .task-icon{
+    width:42px; height:42px; border-radius:12px; flex-shrink:0;
+    display:flex; align-items:center; justify-content:center; font-size:18px;
+  }
+  .icon-blue{background:linear-gradient(150deg,#dceeff,#c8e2ff); color:#2f6fd1;}
+  .icon-pink{background:linear-gradient(150deg,#ffe1ec,#ffd0e2); color:#e0568e;}
+  .icon-gold{background:linear-gradient(150deg,#fff1d6,#ffe4ad); color:#c98a12;}
+  .icon-mint{background:linear-gradient(150deg,#d9f6e9,#c3f0dd); color:#1fa06b;}
+
+  .task-info{flex:1; min-width:0;}
+  .task-title{font-size:13px; font-weight:700; margin-bottom:3px;}
+  .task-meta{display:flex; align-items:center; gap:6px; font-size:11px; color:var(--ink-soft);}
+  .task-reward{display:flex; align-items:center; gap:3px; font-weight:800; color:var(--gold-deep);}
+  .task-sep{opacity:0.4;}
+
+  .task-btn{
+    border:none; font-family:inherit; font-weight:800; font-size:11px;
+    padding:9px 14px; border-radius:12px;
+    background:linear-gradient(135deg, var(--pink), #ff8fb8); color:#fff;
+    cursor:pointer; flex-shrink:0; min-width:64px;
+    transition: transform .15s ease; box-shadow:0 6px 14px -6px rgba(255,111,165,0.55);
+  }
+  .task-btn:active{transform:scale(0.92);}
+
+  .scroll-fade{
+    height:16px; margin-top:-16px;
+    background:linear-gradient(180deg, transparent, #e3edfc);
+    pointer-events:none; flex-shrink:0;
+  }
+
+  /* floating feedback */
+  .fly-points{
+    position:fixed; font-weight:900; font-size:14px; color:var(--gold-deep);
+    pointer-events:none; z-index:50; animation: flyUp 1s ease forwards;
+  }
+  @keyframes flyUp{
+    0%{opacity:0; transform:translateY(0) scale(0.8);}
+    15%{opacity:1; transform:translateY(-6px) scale(1.05);}
+    100%{opacity:0; transform:translateY(-46px) scale(1);}
+  }
+  .confetti{
+    position:fixed; width:7px; height:7px; border-radius:2px;
+    pointer-events:none; z-index:49; animation: confettiFall 1.1s ease-out forwards;
+  }
+  @keyframes confettiFall{
+    0%{opacity:1; transform:translate(0,0) rotate(0deg);}
+    100%{opacity:0; transform:translate(var(--dx), var(--dy)) rotate(var(--rot));}
+  }
+
+  @media (prefers-reduced-motion: reduce){
+    *{animation-duration:0.01ms !important; transition-duration:0.01ms !important;}
+  }
+
+  /* ---------- Disclosure banner (fixed, always visible) ---------- */
+  .disclosure-banner{
+    position:fixed; top:0; left:0.5%; width:99%; z-index:999;
+    background:linear-gradient(135deg, #16224a, #25428c);
+    color:#fff; font-size:10.5px; font-weight:600; line-height:1.5;
+    text-align:center; padding:7px 10px;
+    box-shadow:0 4px 14px -4px rgba(15,32,80,0.5);
+    border-bottom:1px solid rgba(255,255,255,0.15);
+  }
+  .disclosure-banner b{color:#ffd166; font-weight:800;}
+</style>
+</head>
+<body>
+
+<div class="disclosure-banner" style="display:none;!important" id="disclosureBanner"></div>
+
+<div class="app">
+
+  <div class="topbar">
+    <div class="brand"><span class="dot"></span> <span id="brandName">StarMate</span></div>
+    <button class="lang-toggle" id="langToggle" title="Switch language">🇷🇺</button>
+  </div>
+
+  <!-- HERO -->
+  <div class="hero">
+    <div class="hero-top">
+      <div>
+        <div class="hero-label" id="heroLabel">Stars collected</div>
+        <div class="hero-sub" id="heroSub">Every task fills part of a star</div>
+      </div>
+      <div class="today-pill"><span id="todayPrefix">Today +</span><span id="todayVal">0.5</span> ⭐</div>
+    </div>
+
+    <div class="gauge-wrap">
+      <div class="star-box">
+        <svg class="star-svg" viewBox="0 0 160 160">
+          <defs>
+            <clipPath id="starClip">
+              <path d="M80,14 L99,60 L150,64 L111,97 L124,148 L80,120 L36,148 L49,97 L10,64 L61,60 Z"/>
+            </clipPath>
+            <linearGradient id="starLiquid" x1="0" y1="1" x2="0" y2="0">
+              <stop offset="0%" stop-color="#ff8f2e"/>
+              <stop offset="100%" stop-color="#ffd166"/>
+            </linearGradient>
+          </defs>
+          <path d="M80,14 L99,60 L150,64 L111,97 L124,148 L80,120 L36,148 L49,97 L10,64 L61,60 Z"
+                fill="rgba(255,255,255,0.08)" stroke="rgba(255,255,255,0.35)" stroke-width="2.5"/>
+          <g clip-path="url(#starClip)">
+            <rect id="starFillRect" class="star-fill-rect" x="0" y="0" width="160" height="160"
+                  fill="url(#starLiquid)" transform="translate(0,160)"/>
+          </g>
+        </svg>
+        <div class="star-number" id="starNumber">0</div>
+      </div>
+      <div class="gauge-caption" id="gaugeCaption">0% of next star filled</div>
+    </div>
+
+    <button class="claim-btn locked" id="claimBtn">🔒 Minimum withdrawal: 15 stars</button>
+    <div class="claim-caption" id="claimCaption">15 points until claiming 15 stars</div>
+    <div class="claim-note" id="claimNote">To withdraw, invite <b>3 friends</b> first 👥</div>
+  </div>
+
+  <!-- SPECIAL TASK -->
+  <div class="special-wrap">
+    <div class="special-label"><span class="flame">✦</span> <span id="specialLabel">Special task</span></div>
+    <div class="special-task" id="specialTask">
+      <span class="space-dot"></span><span class="space-dot"></span><span class="space-dot"></span>
+      <span class="space-dot"></span><span class="space-dot"></span><span class="space-dot"></span>
+      <span class="comet"></span>
+      <div class="special-icon">🌌</div>
+      <div class="special-info">
+        <div class="special-title" id="specialTitle">Survey</div>
+        <div class="special-meta"><span class="special-reward" id="specialReward">+2 ⭐</span></div>
+      </div>
+      <span class="special-sparkle" id="specialSparkle">✨</span>
+      <button class="special-btn" id="specialBtn" disabled>...</button>
+    </div>
+  </div>
+
+  <!-- REGULAR TASKS -->
+  <div class="section-head">
+    <div class="section-title" id="sectionTitle">Regular tasks</div>
+    <div class="section-count"><span id="taskCount">4</span> <span id="activeLabel">active</span></div>
+  </div>
+
+  <div class="task-scroll">
+    <div class="tasks" id="taskList"></div>
+  </div>
+  <div class="scroll-fade"></div>
+
+</div>
+
+<script>
+  // ---------- i18n ----------
+  const translations = {
+    en: {
+      brand: "StarMate",
+      heroLabel: "Stars collected",
+      heroSub: "Every task fills part of a star",
+      todayPrefix: "Today +",
+      gaugeCaption: pct => `${pct}% of next star filled`,
+      claimLocked: "🔒 Minimum withdrawal: 15 stars",
+      claimReady: n => `Withdraw ${n} stars ⭐`,
+      claimCaption: remaining => `${remaining} points until claiming 15 stars`,
+      claimNote: `To withdraw, invite <b>3 friends</b> first 👥`,
+      specialLabel: "Special task",
+      sectionTitle: "Regular tasks",
+      activeLabel: "active",
+      taskPrefix: "Task",
+      start: "Start",
+      claim: "Claim",
+      adRewardedTitle: "Watch an ad",
+      cpxSurveyName: "Complete a survey",
+      cpxWaiting: "No survey available right now",
+      durations: {sec4:"4 sec", sec5:"5 sec", sec7:"7 sec", sec9:"9 sec", sec12:"12 sec", sec15:"15 sec"},
+      disclosure: `After reaching <b>15 stars</b>, withdrawal requires <b>3 referrals</b>. Also, earnings per task get <b>smaller the more tasks you complete in a row</b>.`
+    },
+    ru: {
+      brand: "СтарМейт",
+      heroLabel: "Собрано звёзд",
+      heroSub: "Каждое задание заполняет часть звезды",
+      todayPrefix: "Сегодня +",
+      gaugeCaption: pct => `${pct}% следующей звезды заполнено`,
+      claimLocked: "🔒 Минимальный вывод: 15 звёзд",
+      claimReady: n => `Вывести ${n} звёзд ⭐`,
+      claimCaption: remaining => `${remaining} очков до вывода 15 звёзд`,
+      claimNote: `Чтобы вывести, сначала пригласи <b>3 друзей</b> 👥`,
+      specialLabel: "Особое задание",
+      sectionTitle: "Обычные задания",
+      activeLabel: "активно",
+      taskPrefix: "Задание",
+      start: "Начать",
+      claim: "Забрать",
+      adRewardedTitle: "Посмотреть рекламу",
+      cpxSurveyName: "Пройти опрос",
+      cpxWaiting: "Сейчас нет доступного опроса",
+      durations: {sec4:"4 сек", sec5:"5 сек", sec7:"7 сек", sec9:"9 сек", sec12:"12 сек", sec15:"15 сек"},
+      disclosure: `После достижения <b>15 звёзд</b> для вывода нужно <b>3 реферала</b>. Также награда за задание <b>уменьшается, чем больше заданий подряд вы выполняете</b>.`
+    }
+  };
+
+  let currentLang = 'en';
+
+  // ---------- state ----------
+  let totalStars = 0;
+  let todayEarned = 0;
+  const CLAIM_MIN = 15;
+  const SPECIAL_REWARD = 2;
+
+  // ---------------------------------------------------------------------------
+  // Telegram user (real id inside Telegram, mock id outside for local testing)
+  // ---------------------------------------------------------------------------
+  let userInfo = { id: 900000000 + Math.floor(Math.random() * 90000000), first_name: "Guest", username: "" };
+  (function loadRealTelegramUser() {
+    try {
+      const tg = window.Telegram && window.Telegram.WebApp;
+      if (!tg) { console.log("⚠️ Outside Telegram — using a mock id for testing"); return; }
+      tg.ready(); tg.expand();
+      const u = tg.initDataUnsafe && tg.initDataUnsafe.user;
+      if (!u || !u.id) { console.log("⚠️ No initData.user — using a mock id"); return; }
+      userInfo = { id: u.id, first_name: u.first_name || "", last_name: u.last_name || "", username: u.username || "", is_premium: !!u.is_premium };
+      console.log("✅ Real Telegram user loaded | id:", userInfo.id);
+    } catch (err) { console.log("⚠️ Error reading Telegram initData:", err); }
+  })();
+
+  // ---------------------------------------------------------------------------
+  // Supabase — same backend project as Coin-Earn. Only the columns this app
+  // actually uses are touched (telegram_id, stars, ads_watched); every other
+  // Coin-Earn-only column (wheel effects, referral gifts, games, etc.) is left
+  // alone/untouched by this app.
+  // ---------------------------------------------------------------------------
+  const SUPABASE_URL = "https://dppezqmhagqbpcemftyx.supabase.co";
+  const SUPABASE_ANON_KEY = "sb_publishable_JxH_z3TTI3udozdnwtK2vw_vfP_9RsK";
+  let supabaseClient = null;
+  if (window.supabase) {
+    supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+  }
+
+  async function loadOrCreateStarUser() {
+    if (!supabaseClient) return;
+    try {
+      const { data: existing, error: selErr } = await supabaseClient
+        .from("users").select("telegram_id, stars, ads_watched")
+        .eq("telegram_id", userInfo.id).maybeSingle();
+      if (selErr) throw selErr;
+      if (existing) {
+        totalStars = Number(existing.stars) || 0;
+        return;
+      }
+      const { data: created, error: insErr } = await supabaseClient
+        .from("users").insert({
+          telegram_id: userInfo.id,
+          first_name: userInfo.first_name || "",
+          username: userInfo.username || null,
+          stars: 0,
+          ads_watched: 0,
+        }).select().single();
+      if (insErr) throw insErr;
+      totalStars = Number(created.stars) || 0;
+    } catch (err) {
+      console.log("⚠️ loadOrCreateStarUser failed (app keeps working locally):", err.message || err);
+    }
+  }
+
+  let starSyncTimer = null;
+  function queueStarSync() {
+    if (!supabaseClient) return;
+    clearTimeout(starSyncTimer);
+    starSyncTimer = setTimeout(syncStarsNow, 800);
+  }
+  async function syncStarsNow() {
+    if (!supabaseClient) return;
+    try {
+      const { error } = await supabaseClient.from("users")
+        .update({ stars: totalStars, updated_at: new Date().toISOString() })
+        .eq("telegram_id", userInfo.id);
+      if (error) throw error;
+    } catch (err) { console.log("⚠️ syncStarsNow failed:", err.message || err); }
+  }
+  window.addEventListener("pagehide", syncStarsNow);
+  window.addEventListener("beforeunload", syncStarsNow);
+
+  async function fetchLatestStarsFromServer() {
+    if (!supabaseClient) return null;
+    try {
+      const { data, error } = await supabaseClient.from("users")
+        .select("stars").eq("telegram_id", userInfo.id).single();
+      if (error) throw error;
+      return Number(data.stars) || 0;
+    } catch (err) { console.log("⚠️ fetchLatestStarsFromServer failed:", err.message || err); return null; }
+  }
+
+  async function logAdTransaction(network, externalId, starsAwarded) {
+    if (!supabaseClient) return;
+    try {
+      const { error } = await supabaseClient.from("ad_transactions").insert({
+        user_id: userInfo.id, network, external_id: externalId ? String(externalId) : null,
+        coins_awarded: starsAwarded, status: "pending",
+      });
+      if (error) throw error;
+    } catch (err) { console.log("⚠️ logAdTransaction failed:", err.message || err); }
+  }
+
+  // ---------------------------------------------------------------------------
+  // Adsgram — real blocks
+  // ---------------------------------------------------------------------------
+  const ADSGRAM_REWARDED_CONFIGS = [
+    { blockId: "39768", cooldownSec: 20 },
+    { blockId: "39769", cooldownSec: 20 },
+  ];
+  const ADSGRAM_INTERSTITIAL_CONFIG = { blockId: "int-40698", cooldownSec: 25 };
+  const ADSGRAM_TASK_BLOCK_IDS = ["task-39639", "task-40700", "task-40701"];
+
+  let adsgramControllers = {};
+  function initAdsgramSdk() {
+    if (!window.Adsgram) { setTimeout(initAdsgramSdk, 500); return; }
+    [...ADSGRAM_REWARDED_CONFIGS.map(c => c.blockId), ADSGRAM_INTERSTITIAL_CONFIG.blockId].forEach((blockId) => {
+      if (!adsgramControllers[blockId]) adsgramControllers[blockId] = window.Adsgram.init({ blockId });
+    });
+  }
+  function showAdsgramAd(blockId, onSuccess, onCancel) {
+    const controller = adsgramControllers[blockId];
+    if (!controller) {
+      initAdsgramSdk();
+      if (onCancel) onCancel();
+      return;
+    }
+    controller.show().then(onSuccess).catch((err) => {
+      console.log("Adsgram ad failed/skipped:", err);
+      if (onCancel) onCancel();
+    });
+  }
+
+  // ---------------------------------------------------------------------------
+  // CPX Research — real surveys, same publisher account as Coin-Earn
+  // ---------------------------------------------------------------------------
+  const CPX_CONFIG = {
+    appId: "34595",
+    secureHashKey: "kolgQTx1JVtWR858wuJumSbMsVUaBcYV",
+    limit: 1,
+    refreshMs: 120000,
+  };
+  function md5(str) {
+    function rotl(n, c) { return (n << c) | (n >>> (32 - c)); }
+    function toHex(n) {
+      let s = "";
+      for (let i = 0; i < 4; i++) s += ((n >> (i * 8)) & 0xff).toString(16).padStart(2, "0");
+      return s;
+    }
+    const K = [];
+    for (let i = 0; i < 64; i++) K[i] = Math.floor(Math.abs(Math.sin(i + 1)) * 4294967296) | 0;
+    const S = [
+      7,12,17,22, 7,12,17,22, 7,12,17,22, 7,12,17,22,
+      5, 9,14,20, 5, 9,14,20, 5, 9,14,20, 5, 9,14,20,
+      4,11,16,23, 4,11,16,23, 4,11,16,23, 4,11,16,23,
+      6,10,15,21, 6,10,15,21, 6,10,15,21, 6,10,15,21
+    ];
+    const bytes = [];
+    const utf8 = unescape(encodeURIComponent(str));
+    for (let i = 0; i < utf8.length; i++) bytes.push(utf8.charCodeAt(i));
+    const origLenBits = bytes.length * 8;
+    bytes.push(0x80);
+    while (bytes.length % 64 !== 56) bytes.push(0);
+    for (let i = 0; i < 8; i++) bytes.push((origLenBits / Math.pow(2, i * 8)) & 0xff);
+    let a0 = 0x67452301, b0 = 0xefcdab89, c0 = 0x98badcfe, d0 = 0x10325476;
+    for (let chunkStart = 0; chunkStart < bytes.length; chunkStart += 64) {
+      const M = [];
+      for (let j = 0; j < 16; j++) {
+        M[j] = bytes[chunkStart + j * 4] | (bytes[chunkStart + j * 4 + 1] << 8) |
+               (bytes[chunkStart + j * 4 + 2] << 16) | (bytes[chunkStart + j * 4 + 3] << 24);
+      }
+      let A = a0, B = b0, C = c0, D = d0;
+      for (let i = 0; i < 64; i++) {
+        let F, g;
+        if (i < 16) { F = (B & C) | (~B & D); g = i; }
+        else if (i < 32) { F = (D & B) | (~D & C); g = (5 * i + 1) % 16; }
+        else if (i < 48) { F = B ^ C ^ D; g = (3 * i + 5) % 16; }
+        else { F = C ^ (B | ~D); g = (7 * i) % 16; }
+        F = (F + A + K[i] + M[g]) | 0;
+        A = D; D = C; C = B;
+        B = (B + rotl(F, S[i])) | 0;
+      }
+      a0 = (a0 + A) | 0; b0 = (b0 + B) | 0; c0 = (c0 + C) | 0; d0 = (d0 + D) | 0;
+    }
+    return toHex(a0) + toHex(b0) + toHex(c0) + toHex(d0);
+  }
+  function buildCpxSurveysUrl(ip) {
+    const uid = String(userInfo.id);
+    const hash = md5(uid + "-" + CPX_CONFIG.secureHashKey);
+    const params = new URLSearchParams({
+      app_id: CPX_CONFIG.appId, ext_user_id: uid, output_method: "api",
+      limit: String(CPX_CONFIG.limit), secure_hash: hash,
+    });
+    if (ip) params.set("ip_user", ip);
+    return "https://live-api.cpx-research.com/api/get-surveys.php?" + params.toString();
+  }
+  let cachedUserIp = null;
+  async function getUserIpCached() {
+    if (cachedUserIp) return cachedUserIp;
+    try {
+      const r = await fetch("https://api.ipify.org?format=json");
+      const d = await r.json();
+      cachedUserIp = d.ip || null;
+    } catch (err) { console.log("IP lookup failed:", err); }
+    return cachedUserIp;
+  }
+
+  const el = id => document.getElementById(id);
+  const starFillRect = el('starFillRect');
+  const starNumber = el('starNumber');
+  const gaugeCaption = el('gaugeCaption');
+  const claimBtn = el('claimBtn');
+  const claimCaption = el('claimCaption');
+  const claimNote = el('claimNote');
+  const todayVal = el('todayVal');
+  const todayPrefixEl = el('todayPrefix');
+  const taskCountEl = el('taskCount');
+  const langToggle = el('langToggle');
+  const taskList = el('taskList');
+  const specialTask = el('specialTask');
+  const specialTitle = el('specialTitle');
+  const specialReward = el('specialReward');
+  const specialBtn = el('specialBtn');
+  const specialSparkle = el('specialSparkle');
+  const disclosureBanner = el('disclosureBanner');
+
+  const fmtNum = n => {
+    const rounded = Math.round(n*100)/100;
+    return Number.isInteger(rounded) ? rounded.toString() : rounded.toFixed(2).replace(/0+$/,'').replace(/\.$/,'');
+  };
+  function currentRate(){
+    if(totalStars >= 14) return 0.10;
+    if(totalStars >= 13) return 0.18;
+    if(totalStars >= 10) return 0.25;
+    return 0.5;
+  }
+
+  // ---------------------------------------------------------------------------
+  // Regular tasks — real ad units (no more random/simulated cards):
+  //  · 2 Adsgram Rewarded video blocks (39768, 39769)
+  //  · 1 Adsgram Interstitial block (int-40698)
+  //  · 3 Adsgram Task-widget blocks (task-39639, task-40700, task-40701)
+  // Reward for every real ad = currentRate() — the same shrinking-per-round rate
+  // the star gauge already used, so the economy stays exactly as designed.
+  // ---------------------------------------------------------------------------
+  function grantStars(amount, anchorEl, network, externalId){
+    const prevFloor = Math.floor(totalStars);
+    flyReward(anchorEl, amount);
+    burstConfetti(anchorEl);
+    totalStars += amount;
+    todayEarned += amount;
+    renderGauge();
+    renderRegularRewards();
+    const newFloor = Math.floor(totalStars);
+    if(newFloor > prevFloor) popStarNumber();
+    logAdTransaction(network, externalId, amount);
+    queueStarSync();
+  }
+
+  function updateTaskCount(){
+    const active = taskList.querySelectorAll('.task:not(.hidden-task):not(.done)').length;
+    taskCountEl.textContent = active;
+  }
+
+  function renderRegularRewards(){
+    document.querySelectorAll('#taskList [data-reward-label]').forEach(elx=>{
+      elx.textContent = `+${fmtNum(currentRate())} ⭐`;
+    });
+  }
+
+  // ---- Rewarded video card (Adsgram) ----
+  function buildRewardedCard(blockId, cooldownSec, icon, emoji){
+    const task = document.createElement('div');
+    task.className = 'task';
+    task.dataset.blockId = blockId;
+    task.innerHTML = `
+      <div class="task-icon icon-${icon}">${emoji}</div>
+      <div class="task-info">
+        <div class="task-title">${translations[currentLang].adRewardedTitle}</div>
+        <div class="task-meta"><span class="task-reward" data-reward-label>+${fmtNum(currentRate())} ⭐</span></div>
+      </div>
+      <button class="task-btn">${translations[currentLang].start}</button>
+    `;
+    const btn = task.querySelector('.task-btn');
+    btn.addEventListener('click', () => {
+      if(btn.disabled) return;
+      btn.disabled = true;
+      btn.textContent = '...';
+      showAdsgramAd(blockId, () => {
+        const reward = currentRate();
+        grantStars(reward, btn, 'adsgram_rewarded', blockId);
+        btn.textContent = '✓';
+        let remaining = cooldownSec;
+        const cd = setInterval(() => {
+          remaining--;
+          if(remaining <= 0){
+            clearInterval(cd);
+            btn.disabled = false;
+            btn.textContent = translations[currentLang].start;
+          } else {
+            btn.textContent = `${remaining}s`;
+          }
+        }, 1000);
+      }, () => {
+        btn.disabled = false;
+        btn.textContent = translations[currentLang].start;
+      });
+    });
+    return task;
+  }
+
+  // ---- Interstitial card (Adsgram) ----
+  function buildInterstitialCard(){
+    return buildRewardedCard(ADSGRAM_INTERSTITIAL_CONFIG.blockId, ADSGRAM_INTERSTITIAL_CONFIG.cooldownSec, 'gold', '🎬');
+  }
+
+  // ---- Task-widget card (Adsgram <adsgram-task>) ----
+  function buildTaskWidgetCard(blockId){
+    const wrap = document.createElement('div');
+    wrap.className = 'task ag-task-wrap';
+    wrap.dataset.blockId = blockId;
+    wrap.innerHTML = `
+      <adsgram-task class="ag-task-el" data-block-id="${blockId}" data-debug="false" data-debug-console="false">
+        <span slot="reward" class="ag-task-reward"></span>
+        <div slot="button" class="ag-task-btn">${translations[currentLang].start}</div>
+        <div slot="claim" class="ag-task-btn ag-task-btn-claim">${translations[currentLang].claim}</div>
+        <div slot="done" class="ag-task-btn ag-task-btn-done">✓</div>
+      </adsgram-task>
+    `;
+    const rewardSlot = wrap.querySelector('.ag-task-reward');
+    if(rewardSlot) rewardSlot.textContent = `+${fmtNum(currentRate())} ⭐`;
+
+    const widgetEl = wrap.querySelector('.ag-task-el');
+    let rewarded = false;
+    widgetEl.addEventListener('reward', () => {
+      if(rewarded) return;
+      rewarded = true;
+      const reward = currentRate();
+      grantStars(reward, widgetEl, 'adsgram_task', blockId);
+    });
+    widgetEl.addEventListener('onBannerNotFound', () => {
+      wrap.classList.add('hidden-task');
+      updateTaskCount();
+    });
+    widgetEl.addEventListener('onError', (e) => console.log('Adsgram task error:', e.detail));
+
+    return wrap;
+  }
+
+  function buildRegularTasks(){
+    taskList.innerHTML = '';
+    ADSGRAM_REWARDED_CONFIGS.forEach((cfg, i) => {
+      taskList.appendChild(buildRewardedCard(cfg.blockId, cfg.cooldownSec, i === 0 ? 'blue' : 'pink', i === 0 ? '📺' : '🎥'));
+    });
+    taskList.appendChild(buildInterstitialCard());
+    ADSGRAM_TASK_BLOCK_IDS.forEach((blockId) => {
+      taskList.appendChild(buildTaskWidgetCard(blockId));
+    });
+    updateTaskCount();
+  }
+
+  // ---------------------------------------------------------------------------
+  // Special task (galaxy slot) — real CPX Research survey.
+  // Button starts DISABLED ("no survey yet"). It only becomes enabled + gets the
+  // blinking ✨ badge once a real survey is actually fetched from CPX. Coins are
+  // NOT granted on click — CPX confirms completion server-side (postback into
+  // the same Supabase project), so we poll the DB afterwards and only reward
+  // once the balance actually moved, exactly like Coin-Earn's CPX flow.
+  // ---------------------------------------------------------------------------
+  let currentCpxSurvey = null; // {id, href, loi}
+  let cpxState = 'loading'; // loading | ready | pending | empty
+
+  function renderSpecialTaskState(){
+    const t = translations[currentLang];
+    specialReward.textContent = `+${fmtNum(SPECIAL_REWARD)} ⭐`;
+    if(cpxState === 'ready'){
+      specialTitle.textContent = t.cpxSurveyName;
+      specialBtn.disabled = false;
+      specialBtn.textContent = t.start;
+      specialSparkle.classList.add('show');
+      specialTask.classList.remove('done');
+    } else if(cpxState === 'pending'){
+      specialTitle.textContent = t.cpxSurveyName;
+      specialBtn.disabled = true;
+      specialBtn.textContent = '⏳';
+      specialSparkle.classList.remove('show');
+      specialTask.classList.add('done');
+    } else {
+      // loading or empty — nothing real to offer right now
+      specialTitle.textContent = t.cpxWaiting;
+      specialBtn.disabled = true;
+      specialBtn.textContent = '...';
+      specialSparkle.classList.remove('show');
+      specialTask.classList.remove('done');
+    }
+  }
+
+  async function fetchAndRenderCpxTask(){
+    if(cpxState === 'pending') return; // don't overwrite while waiting for a postback
+    try{
+      const ip = await getUserIpCached();
+      const res = await fetch(buildCpxSurveysUrl(ip));
+      const data = await res.json();
+      if(data && data.status === 'success' && data.surveys && data.surveys.length){
+        const s = data.surveys[0];
+        currentCpxSurvey = { id: s.id, href: s.href || s.href_new || '', loi: s.loi };
+        cpxState = 'ready';
+      } else {
+        currentCpxSurvey = null;
+        cpxState = 'empty';
+      }
+    } catch(err){
+      console.log('CPX fetch failed:', err);
+      currentCpxSurvey = null;
+      cpxState = 'empty';
+    }
+    renderSpecialTaskState();
+  }
+
+  let cpxPollTimer = null;
+  function startCpxRewardPolling(){
+    if(cpxPollTimer) clearInterval(cpxPollTimer);
+    const POLL_INTERVAL_MS = 15000;
+    const MAX_POLLS = 20; // ~5 minutes
+    let pollCount = 0;
+    cpxPollTimer = setInterval(async () => {
+      pollCount++;
+      const latest = await fetchLatestStarsFromServer();
+      if(latest != null && latest > totalStars){
+        const diff = latest - totalStars;
+        totalStars = latest;
+        renderGauge();
+        flyReward(specialBtn, diff);
+        burstConfetti(specialBtn);
+        popStarNumber();
+        clearInterval(cpxPollTimer);
+        cpxPollTimer = null;
+        cpxState = 'empty';
+        fetchAndRenderCpxTask();
+      } else if(pollCount >= MAX_POLLS){
+        clearInterval(cpxPollTimer);
+        cpxPollTimer = null;
+        // fall back to whatever CPX has next, keep waiting UI otherwise
+        fetchAndRenderCpxTask();
+      }
+    }, POLL_INTERVAL_MS);
+  }
+
+  specialBtn.addEventListener('click', () => {
+    if(cpxState !== 'ready' || !currentCpxSurvey) return;
+    const url = currentCpxSurvey.href;
+    if(!url) return;
+    const tg = window.Telegram && window.Telegram.WebApp;
+    if(tg && tg.openLink) tg.openLink(url);
+    else window.open(url, '_blank');
+
+    logAdTransaction('cpx', currentCpxSurvey.id, SPECIAL_REWARD);
+    cpxState = 'pending';
+    renderSpecialTaskState();
+    startCpxRewardPolling();
+  });
+
+  // ---------- language ----------
+  function applyStaticText(){
+    const t = translations[currentLang];
+    document.documentElement.lang = currentLang;
+    el('brandName').textContent = t.brand;
+    el('heroLabel').textContent = t.heroLabel;
+    el('heroSub').textContent = t.heroSub;
+    todayPrefixEl.textContent = t.todayPrefix;
+    el('sectionTitle').textContent = t.sectionTitle;
+    el('activeLabel').textContent = t.activeLabel;
+    el('specialLabel').textContent = t.specialLabel;
+    langToggle.textContent = currentLang === 'en' ? '🇷🇺' : '🇬🇧';
+    disclosureBanner.innerHTML = t.disclosure;
+
+    document.querySelectorAll('#taskList .task:not(.ag-task-wrap) .task-title').forEach(elx=>{
+      elx.textContent = t.adRewardedTitle;
+    });
+    document.querySelectorAll('#taskList .task:not(.ag-task-wrap) .task-btn:not(:disabled)').forEach(btn=>{
+      if(!/^\d+s$/.test(btn.textContent)) btn.textContent = t.start;
+    });
+    document.querySelectorAll('#taskList .ag-task-btn:not(.ag-task-btn-claim):not(.ag-task-btn-done)').forEach(btn=>{
+      btn.textContent = t.start;
+    });
+    document.querySelectorAll('#taskList .ag-task-btn-claim').forEach(btn=>{
+      btn.textContent = t.claim;
+    });
+    renderRegularRewards();
+    renderSpecialTaskState();
+    renderGauge();
+  }
+
+  function toggleLanguage(){
+    currentLang = currentLang === 'en' ? 'ru' : 'en';
+    applyStaticText();
+  }
+  langToggle.addEventListener('click', toggleLanguage);
+
+  // ---------- gauge / claim ----------
+  function renderGauge(){
+    const t = translations[currentLang];
+    const floorVal = Math.floor(totalStars);
+    const frac = totalStars - floorVal;
+    const pct = frac * 100;
+
+    starFillRect.style.transform = `translate(0, ${160 - (pct/100*160)}px)`;
+    starNumber.textContent = floorVal;
+    gaugeCaption.textContent = t.gaugeCaption(Math.round(pct));
+    todayVal.textContent = fmtNum(todayEarned);
+
+    if(totalStars >= CLAIM_MIN){
+      claimBtn.classList.remove('locked');
+      claimBtn.classList.add('ready');
+      claimBtn.textContent = t.claimReady(CLAIM_MIN);
+      claimCaption.style.display = 'none';
+    } else {
+      claimBtn.classList.add('locked');
+      claimBtn.classList.remove('ready');
+      claimBtn.textContent = t.claimLocked;
+      claimCaption.style.display = 'block';
+      const remaining = Math.max(0, CLAIM_MIN - totalStars);
+      claimCaption.textContent = t.claimCaption(fmtNum(remaining));
+    }
+  }
+
+  claimBtn.addEventListener('click', ()=>{
+    if(totalStars < CLAIM_MIN) return;
+    claimNote.innerHTML = translations[currentLang].claimNote;
+    claimNote.classList.add('show');
+  });
+
+  // ---------- fx ----------
+  function flyReward(anchor, amount){
+    const rect = anchor.getBoundingClientRect();
+    const elx = document.createElement('div');
+    elx.className = 'fly-points';
+    elx.textContent = '+' + fmtNum(amount) + ' ⭐';
+    elx.style.left = (rect.left + rect.width/2 - 20) + 'px';
+    elx.style.top = (rect.top - 6) + 'px';
+    document.body.appendChild(elx);
+    setTimeout(()=>elx.remove(), 1000);
+  }
+
+  function burstConfetti(anchor){
+    const rect = anchor.getBoundingClientRect();
+    const colors = ['#ffb648','#ff8f2e','#ff6fa5','#3f6fd4'];
+    for(let i=0;i<10;i++){
+      const c = document.createElement('div');
+      c.className = 'confetti';
+      const dx = (Math.random()-0.5)*90;
+      const dy = -Math.random()*70 - 20;
+      const rot = (Math.random()-0.5)*300;
+      c.style.setProperty('--dx', dx+'px');
+      c.style.setProperty('--dy', dy+'px');
+      c.style.setProperty('--rot', rot+'deg');
+      c.style.left = (rect.left + rect.width/2) + 'px';
+      c.style.top = (rect.top + rect.height/2) + 'px';
+      c.style.background = colors[i % colors.length];
+      document.body.appendChild(c);
+      setTimeout(()=>c.remove(), 1100);
+    }
+  }
+
+  // ---------- boot ----------
+  async function boot(){
+    buildRegularTasks();
+    applyStaticText();
+    updateTaskCount();
+
+    initAdsgramSdk();
+    renderSpecialTaskState(); // shows the disabled/loading state immediately
+
+    await loadOrCreateStarUser(); // pulls real stars balance from Supabase, if configured
+    renderGauge();
+
+    fetchAndRenderCpxTask();
+    setInterval(fetchAndRenderCpxTask, CPX_CONFIG.refreshMs);
+
+    document.addEventListener('visibilitychange', () => {
+      if(!document.hidden) fetchLatestStarsFromServer().then((latest) => {
+        if(latest != null && latest > totalStars){
+          totalStars = latest;
+          renderGauge();
+        }
+      });
+    });
+  }
+  boot();
+</script>
+
+</body>
+</html>
