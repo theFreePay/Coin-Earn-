@@ -1,0 +1,633 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>تسک‌مارکت</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Vazirmatn:wght@400;500;600;700;900&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0B0F1A;
+    --surface: #151B2C;
+    --surface-raised: #1E2740;
+    --divider: #262F45;
+    --gold: #F5B942;
+    --gold-dim: #8A6A2A;
+    --blue: #4FA8FF;
+    --success: #4ADE80;
+    --text: #F5F3EE;
+    --text-muted: #8791A8;
+    --radius: 18px;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  html, body {
+    height: 100%;
+    background: #05070C;
+  }
+
+  body {
+    font-family: 'Vazirmatn', sans-serif;
+    color: var(--text);
+    display: flex;
+    justify-content: center;
+    align-items: stretch;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+      animation-duration: 0.001ms !important;
+      transition-duration: 0.001ms !important;
+    }
+  }
+
+  .app {
+    width: 100%;
+    max-width: 430px;
+    min-height: 100dvh;
+    background: var(--bg);
+    background-image:
+      radial-gradient(circle at 85% -5%, rgba(79,168,255,0.10), transparent 45%),
+      radial-gradient(circle at -10% 15%, rgba(245,185,66,0.08), transparent 40%);
+    display: flex;
+    flex-direction: column;
+    position: relative;
+  }
+
+  /* header */
+  .topbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 18px 20px 8px;
+  }
+  .brand {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-weight: 700;
+    font-size: 15px;
+    letter-spacing: 0.2px;
+  }
+  .brand-dot {
+    width: 7px; height: 7px; border-radius: 50%;
+    background: var(--gold);
+    box-shadow: 0 0 8px var(--gold);
+  }
+  .wallet-pill {
+    display: flex; align-items: center; gap: 6px;
+    font-size: 12px; color: var(--text-muted);
+    background: var(--surface);
+    border: 1px solid var(--divider);
+    padding: 6px 12px;
+    border-radius: 999px;
+  }
+  .wallet-pill .pip {
+    width: 6px; height: 6px; border-radius: 50%;
+    background: #556; transition: background .3s;
+  }
+  .wallet-pill.connected .pip { background: var(--blue); box-shadow: 0 0 6px var(--blue); }
+
+  /* balance hero */
+  .hero {
+    padding: 10px 24px 18px;
+    text-align: center;
+  }
+  .hero-label {
+    font-size: 12.5px;
+    color: var(--text-muted);
+    font-weight: 500;
+  }
+  .balance-row {
+    display: flex;
+    align-items: baseline;
+    justify-content: center;
+    gap: 8px;
+    margin-top: 6px;
+  }
+  .coin-icon {
+    font-size: 26px;
+    filter: drop-shadow(0 0 10px rgba(245,185,66,0.5));
+  }
+  #balance {
+    font-size: 44px;
+    font-weight: 900;
+    letter-spacing: -0.5px;
+    font-variant-numeric: tabular-nums;
+  }
+  .usd-value {
+    margin-top: 2px;
+    font-size: 13px;
+    color: var(--text-muted);
+    font-weight: 500;
+  }
+  .usd-value strong { color: var(--gold); font-weight: 700; }
+
+  .progress-wrap {
+    margin: 16px auto 0;
+    max-width: 280px;
+  }
+  .progress-track {
+    height: 6px;
+    background: var(--surface-raised);
+    border-radius: 999px;
+    overflow: hidden;
+  }
+  .progress-fill {
+    height: 100%;
+    width: 49%;
+    border-radius: 999px;
+    background: linear-gradient(90deg, var(--gold-dim), var(--gold));
+    transition: width .6s cubic-bezier(.2,.8,.2,1);
+  }
+  .progress-text {
+    margin-top: 7px;
+    font-size: 11.5px;
+    color: var(--text-muted);
+  }
+  .progress-text strong { color: var(--text); font-weight: 600; }
+
+  /* section label */
+  .section-label {
+    padding: 4px 22px 10px;
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--text);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .section-label span.count {
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--text-muted);
+  }
+
+  /* task list */
+  .tasks {
+    flex: 1;
+    overflow-y: auto;
+    padding: 0 16px 18px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    -webkit-overflow-scrolling: touch;
+  }
+  .task {
+    background: var(--surface);
+    border: 1px solid var(--divider);
+    border-radius: var(--radius);
+    padding: 14px 16px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    transition: transform .2s, opacity .4s, border-color .3s;
+  }
+  .task-icon {
+    width: 42px; height: 42px;
+    border-radius: 12px;
+    background: var(--surface-raised);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 19px;
+    flex-shrink: 0;
+  }
+  .task-body { flex: 1; min-width: 0; }
+  .task-title {
+    font-size: 13.5px;
+    font-weight: 600;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .task-reward {
+    margin-top: 3px;
+    font-size: 12px;
+    color: var(--gold);
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+  }
+  .task-btn {
+    flex-shrink: 0;
+    border: none;
+    border-radius: 11px;
+    padding: 9px 16px;
+    font-family: inherit;
+    font-size: 12.5px;
+    font-weight: 700;
+    background: var(--gold);
+    color: #241a05;
+    cursor: pointer;
+    transition: transform .15s, background .2s, opacity .2s;
+    min-width: 64px;
+  }
+  .task-btn:active { transform: scale(0.94); }
+  .task-btn:focus-visible {
+    outline: 2px solid var(--blue);
+    outline-offset: 2px;
+  }
+  .task-btn.loading {
+    background: var(--surface-raised);
+    color: var(--text-muted);
+    pointer-events: none;
+  }
+  .task.done {
+    opacity: 0.45;
+    border-color: var(--divider);
+  }
+  .task.done .task-btn {
+    background: transparent;
+    color: var(--success);
+    pointer-events: none;
+  }
+
+  .empty-state {
+    margin-top: 30px;
+    text-align: center;
+    color: var(--text-muted);
+    font-size: 13.5px;
+    line-height: 1.9;
+    padding: 0 30px;
+  }
+  .empty-state .emoji { font-size: 30px; display: block; margin-bottom: 10px; }
+
+  /* bottom wallet bar */
+  .walletbar {
+    padding: 14px 16px calc(16px + env(safe-area-inset-bottom));
+    background: linear-gradient(180deg, transparent, var(--bg) 30%);
+    border-top: 1px solid var(--divider);
+    display: flex;
+    gap: 10px;
+  }
+  .wb-btn {
+    flex: 1;
+    border: none;
+    border-radius: 14px;
+    padding: 15px;
+    font-family: inherit;
+    font-size: 13.5px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: transform .15s, opacity .25s, background .25s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+  }
+  .wb-btn:active { transform: scale(0.97); }
+  .wb-connect {
+    background: var(--surface-raised);
+    color: var(--blue);
+    border: 1px solid rgba(79,168,255,0.35);
+  }
+  .wb-withdraw {
+    background: var(--gold);
+    color: #241a05;
+  }
+  .wb-withdraw:disabled {
+    background: var(--surface-raised);
+    color: var(--text-muted);
+    cursor: not-allowed;
+  }
+  .wb-btn.connected {
+    background: rgba(79,168,255,0.12);
+    color: var(--blue);
+  }
+
+  /* flying coin */
+  .flying-coin {
+    position: fixed;
+    font-size: 20px;
+    pointer-events: none;
+    z-index: 50;
+    filter: drop-shadow(0 0 6px rgba(245,185,66,0.7));
+  }
+
+  /* toast */
+  .toast {
+    position: fixed;
+    left: 50%;
+    bottom: 110px;
+    transform: translateX(-50%) translateY(20px);
+    background: var(--surface-raised);
+    border: 1px solid var(--divider);
+    color: var(--text);
+    padding: 12px 20px;
+    border-radius: 12px;
+    font-size: 13px;
+    font-weight: 600;
+    opacity: 0;
+    transition: opacity .3s, transform .3s;
+    z-index: 60;
+    max-width: 85%;
+    text-align: center;
+  }
+  .toast.show {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+  }
+</style>
+</head>
+<body>
+
+<div class="app">
+
+  <div class="topbar">
+    <div class="brand"><span class="brand-dot"></span>تسک‌مارکت</div>
+    <div class="wallet-pill" id="walletPill"><span class="pip"></span><span id="walletPillText">متصل نیست</span></div>
+  </div>
+
+  <div class="hero">
+    <div class="hero-label">موجودی تو</div>
+    <div class="balance-row">
+      <span class="coin-icon">🪙</span>
+      <span id="balance">۲۴۵,۰۰۰</span>
+    </div>
+    <div class="usd-value">≈ <strong id="usdValue">$4.90</strong></div>
+
+    <div class="progress-wrap">
+      <div class="progress-track"><div class="progress-fill" id="progressFill"></div></div>
+      <div class="progress-text" id="progressText">تا حداقل برداشت (<strong>$10</strong>) <strong id="remainText">$5.10</strong> مونده</div>
+    </div>
+  </div>
+
+  <div class="section-label">
+    <span>تسک‌های امروز <span class="count" id="taskCount">۶ تسک</span></span>
+    <button id="openWallBtn" style="background:none;border:none;color:var(--blue);font-family:inherit;font-size:11.5px;font-weight:600;cursor:pointer;padding:0;">دیوار کامل ›</button>
+  </div>
+
+  <div class="tasks" id="taskList"></div>
+
+  <div class="walletbar">
+    <button class="wb-btn wb-connect" id="connectBtn">👛 اتصال Tonkeeper</button>
+    <button class="wb-btn wb-withdraw" id="withdrawBtn" disabled>برداشت</button>
+  </div>
+
+  <div class="toast" id="toast"></div>
+</div>
+
+<script>
+  // ====== GigaPub OfferWall config ======
+  // TODO: پس از ساخت اپ تو partner.giga.pub، Project ID واقعی رو اینجا جایگزین کن
+  const GIGAPUB_PROJECT_ID = '7551';
+
+  // 1) Load SDK (safe/async loading — طبق راهنمای GigaPub)
+  document.addEventListener('DOMContentLoaded', function () {
+    if (!window.loadOfferWallSDK) {
+      const script = document.createElement('script');
+      script.src = 'https://wall.giga.pub/api/v1/loader.js?projectId=' + GIGAPUB_PROJECT_ID;
+      script.async = true;
+      document.head.appendChild(script);
+    }
+  });
+
+  // 2) Initialize
+  (window.loadGigaSDKCallbacks || (window.loadGigaSDKCallbacks = [])).push(() => {
+    window.loadOfferWallSDK({ projectId: GIGAPUB_PROJECT_ID })
+      .then(sdk => {
+        window.gigaOfferWallSDK = sdk;
+
+        // وقتی کاربر یه پیشنهاد واقعی رو تکمیل کرد
+        sdk.on('rewardClaim', async (data) => {
+          console.log('Reward claim received:', data);
+          await creditUserReward(data);
+          sdk.confirmReward(data.rewardId, data.hash);
+        });
+
+        // پیشنهادهای واقعی موجود رو بگیر و به‌جای دیتای ساختگی نشون بده
+        sdk.getOffers()
+          .then(res => {
+            if (res && res.available && res.available.length) {
+              tasks.length = 0;
+              res.available.forEach(o => {
+                tasks.push({
+                  id: o.id,
+                  icon: o.icon || '🎯',
+                  title: o.title || o.name || 'پیشنهاد جدید',
+                  reward: o.reward || o.payout || 0,
+                  offerId: o.id,
+                });
+              });
+              renderTasks();
+            }
+          })
+          .catch(err => console.error('getOffers error:', err));
+      })
+      .catch(error => console.error('Error loading GigaPub SDK:', error));
+  });
+
+  // اعتبار سکه به موجودی کاربر — فعلاً سمت کلاینت، برای پروداکشن باید سمت سرور تایید بشه
+  async function creditUserReward(data) {
+    const from = state.balance;
+    state.balance += Number(data.amount) || 0;
+    updateBalanceUI(from);
+    showToast('پاداش دریافت شد 🎉');
+  }
+
+  const COIN_PER_USD = 50000;
+  const MIN_WITHDRAW_USD = 10;
+
+  const state = {
+    balance: 245000,
+    walletConnected: false,
+  };
+
+  // دیتای نمایشی پیش‌فرض — به‌محض اینکه SDK لود بشه و Project ID درست باشه،
+  // این آرایه با پیشنهادهای واقعی GigaPub جایگزین میشه (بالا، sdk.getOffers)
+  const tasks = [
+    { id: 1, icon: '📢', title: 'عضو کانال «مارکت پلاس» شو', reward: 4000 },
+    { id: 2, icon: '🤖', title: 'ربات «کوییز طلایی» رو امتحان کن', reward: 6500 },
+    { id: 3, icon: '⭐', title: 'اپ «فوتوادیت پرو» رو نصب کن', reward: 12000 },
+    { id: 4, icon: '📝', title: 'تو نظرسنجی ۲ دقیقه‌ای شرکت کن', reward: 3000 },
+    { id: 5, icon: '🎮', title: 'ربات «جنگ قبیله‌ها» رو بازی کن', reward: 9000 },
+    { id: 6, icon: '📢', title: 'عضو کانال «اخبار روز» شو', reward: 2500 },
+  ];
+
+  const fmt = (n) => Math.round(n).toLocaleString('fa-IR');
+  const usdFmt = (n) => '$' + n.toFixed(2);
+
+  const taskListEl = document.getElementById('taskList');
+  const balanceEl = document.getElementById('balance');
+  const usdValueEl = document.getElementById('usdValue');
+  const progressFillEl = document.getElementById('progressFill');
+  const progressTextEl = document.getElementById('progressText');
+  const remainTextEl = document.getElementById('remainText');
+  const taskCountEl = document.getElementById('taskCount');
+  const connectBtn = document.getElementById('connectBtn');
+  const withdrawBtn = document.getElementById('withdrawBtn');
+  const walletPill = document.getElementById('walletPill');
+  const walletPillText = document.getElementById('walletPillText');
+  const toastEl = document.getElementById('toast');
+
+  function renderTasks() {
+    taskListEl.innerHTML = '';
+    const remaining = tasks.filter(t => !t.done).length;
+    taskCountEl.textContent = fmt(remaining) + ' تسک';
+
+    if (remaining === 0) {
+      taskListEl.innerHTML = `
+        <div class="empty-state">
+          <span class="emoji">🎉</span>
+          همه‌ی تسک‌های امروز رو انجام دادی.<br>فردا تسک‌های تازه اضافه می‌شن.
+        </div>`;
+      return;
+    }
+
+    tasks.forEach(task => {
+      const el = document.createElement('div');
+      el.className = 'task' + (task.done ? ' done' : '');
+      el.id = 'task-' + task.id;
+      el.innerHTML = `
+        <div class="task-icon">${task.icon}</div>
+        <div class="task-body">
+          <div class="task-title">${task.title}</div>
+          <div class="task-reward">+${fmt(task.reward)} سکه</div>
+        </div>
+        <button class="task-btn" data-id="${task.id}">${task.done ? '✓' : 'شروع'}</button>
+      `;
+      taskListEl.appendChild(el);
+    });
+
+    taskListEl.querySelectorAll('.task-btn').forEach(btn => {
+      btn.addEventListener('click', onStartTask);
+    });
+  }
+
+  function updateBalanceUI(animateFrom) {
+    const usd = state.balance / COIN_PER_USD;
+    usdValueEl.textContent = usdFmt(usd);
+
+    const pct = Math.min(100, (usd / MIN_WITHDRAW_USD) * 100);
+    progressFillEl.style.width = pct + '%';
+
+    if (usd >= MIN_WITHDRAW_USD) {
+      progressTextEl.innerHTML = `<strong>حداقل برداشت رو رد کردی 🎯</strong>`;
+      withdrawBtn.disabled = !state.walletConnected;
+    } else {
+      const remain = MIN_WITHDRAW_USD - usd;
+      progressTextEl.innerHTML = `تا حداقل برداشت (<strong>$10</strong>) <strong id="remainText">${usdFmt(remain)}</strong> مونده`;
+      withdrawBtn.disabled = true;
+    }
+
+    if (animateFrom !== undefined) {
+      animateCount(animateFrom, state.balance);
+    } else {
+      balanceEl.textContent = fmt(state.balance);
+    }
+  }
+
+  function animateCount(from, to) {
+    const dur = 700;
+    const start = performance.now();
+    function step(now) {
+      const p = Math.min(1, (now - start) / dur);
+      const eased = 1 - Math.pow(1 - p, 3);
+      balanceEl.textContent = fmt(from + (to - from) * eased);
+      if (p < 1) requestAnimationFrame(step);
+    }
+    requestAnimationFrame(step);
+  }
+
+  function showToast(msg) {
+    toastEl.textContent = msg;
+    toastEl.classList.add('show');
+    setTimeout(() => toastEl.classList.remove('show'), 2200);
+  }
+
+  function flyCoin(fromEl) {
+    const fromRect = fromEl.getBoundingClientRect();
+    const toRect = balanceEl.getBoundingClientRect();
+
+    const coin = document.createElement('div');
+    coin.className = 'flying-coin';
+    coin.textContent = '🪙';
+    coin.style.left = fromRect.left + fromRect.width / 2 + 'px';
+    coin.style.top = fromRect.top + fromRect.height / 2 + 'px';
+    document.body.appendChild(coin);
+
+    const dx = (toRect.left + toRect.width / 2) - (fromRect.left + fromRect.width / 2);
+    const dy = (toRect.top + toRect.height / 2) - (fromRect.top + fromRect.height / 2);
+    const liftY = -Math.abs(dy) * 0.35;
+
+    const anim = coin.animate([
+      { transform: 'translate(0,0) scale(1)', offset: 0 },
+      { transform: `translate(${dx * 0.5}px, ${dy * 0.5 + liftY}px) scale(1.3)`, offset: 0.5 },
+      { transform: `translate(${dx}px, ${dy}px) scale(0.4)`, opacity: 0.2, offset: 1 },
+    ], { duration: 650, easing: 'cubic-bezier(.3,.6,.3,1)' });
+
+    anim.onfinish = () => coin.remove();
+  }
+
+  function onStartTask(e) {
+    const id = e.currentTarget.dataset.id;
+    const task = tasks.find(t => String(t.id) === String(id));
+    if (!task || task.done) return;
+
+    // اگه این یه پیشنهاد واقعی GigaPub باشه، همون‌جا بازش کن؛
+    // تکمیل و اعتبار سکه از طریق رویداد rewardClaim (بالا) انجام میشه، نه اینجا
+    if (task.offerId && window.gigaOfferWallSDK) {
+      window.gigaOfferWallSDK.openOffer(task.offerId);
+      return;
+    }
+
+    const btn = e.currentTarget;
+    btn.classList.add('loading');
+    btn.textContent = 'در حال بررسی…';
+
+    setTimeout(() => {
+      task.done = true;
+      const taskEl = document.getElementById('task-' + id);
+      taskEl.classList.add('done');
+      btn.classList.remove('loading');
+      btn.textContent = '✓';
+
+      flyCoin(btn);
+
+      const from = state.balance;
+      state.balance += task.reward;
+      updateBalanceUI(from);
+
+      const stillLeft = tasks.some(t => !t.done);
+      if (!stillLeft) {
+        setTimeout(renderTasks, 750);
+      }
+    }, 1300);
+  }
+
+  connectBtn.addEventListener('click', () => {
+    if (state.walletConnected) return;
+    connectBtn.textContent = 'در حال اتصال…';
+    setTimeout(() => {
+      state.walletConnected = true;
+      connectBtn.textContent = '👛 UQAb…4f9c';
+      connectBtn.classList.add('connected');
+      walletPill.classList.add('connected');
+      walletPillText.textContent = 'متصل';
+      updateBalanceUI();
+      showToast('کیف‌پول Tonkeeper وصل شد');
+    }, 1000);
+  });
+
+  withdrawBtn.addEventListener('click', () => {
+    if (withdrawBtn.disabled) return;
+    showToast('درخواست برداشت ثبت شد ✅');
+  });
+
+  document.getElementById('openWallBtn').addEventListener('click', () => {
+    if (window.gigaOfferWallSDK) {
+      window.gigaOfferWallSDK.open();
+    } else {
+      showToast('در حال اتصال به سرور پیشنهادها…');
+    }
+  });
+
+  renderTasks();
+  updateBalanceUI();
+</script>
+
+</body>
+</html>
