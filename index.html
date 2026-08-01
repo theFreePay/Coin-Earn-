@@ -9,6 +9,11 @@
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
 <script src="https://sad.adsgram.ai/js/sad.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<!--
+  RichAds push-style CPC ads (loaded dynamically in JS below via initRichAds()
+  instead of a static tag, so we can detect load success/failure and run the
+  fallback-to-rewarded / swap-back-to-block logic described in the script).
+-->
 <style>
   :root{
     --blue-900:#0f2050;
@@ -109,12 +114,19 @@
   .claim-btn.ready:active{transform:scale(0.97);}
   .claim-caption{text-align:center; font-size:10px; color:#9fb0dd; margin-top:5px; position:relative; z-index:1;}
   .claim-caption b{color:#ffd9a0;}
+
+  /* referral / invite note — now clickable */
   .claim-note{
     margin-top:7px; background:rgba(255,111,165,0.14); border:1px solid rgba(255,111,165,0.35);
-    color:#ffd7e8; font-size:10px; font-weight:600; text-align:center; padding:7px 10px; border-radius:12px;
-    position:relative; z-index:1; display:none;
+    color:#ffd7e8; font-size:10.5px; font-weight:700; text-align:center; padding:9px 10px; border-radius:12px;
+    position:relative; z-index:1; display:none; cursor:pointer; user-select:none;
+    transition: transform .15s ease, background .2s ease;
   }
   .claim-note.show{display:block; animation: fadeSlide .3s ease;}
+  .claim-note:active{transform:scale(0.97);}
+  .claim-note.ref-complete{
+    background:rgba(255,182,72,0.18); border-color:rgba(255,182,72,0.45); color:#ffe7b8;
+  }
   @keyframes fadeSlide{from{opacity:0; transform:translateY(-4px);} to{opacity:1; transform:translateY(0);}}
 
   /* ---------- Special task (galaxy) ---------- */
@@ -181,7 +193,6 @@
   @keyframes goldShimmer{0%{background-position:0% center;}100%{background-position:200% center;}}
   @keyframes goldPulse{0%,100%{filter:drop-shadow(0 0 2px rgba(255,182,72,0.25));}50%{filter:drop-shadow(0 0 9px rgba(255,182,72,0.85));}}
   .special-meta{font-size:10.5px; color:#a9b4de;}
-  .special-reward{color:#ffd166; font-weight:800;}
   .special-btn{
     position:relative; z-index:1; flex-shrink:0; border:none; font-family:inherit; font-weight:800;
     font-size:11px; padding:9px 14px; border-radius:12px; min-width:64px; cursor:pointer;
@@ -191,14 +202,19 @@
   .special-btn:active{transform:scale(0.92);}
   .special-task.done{opacity:0.55;}
   .special-task.done .special-btn{background:#3a3a55; color:#c7cdea; box-shadow:none;}
-
-  /* special task locked (no real CPX survey loaded yet) */
   .special-btn:disabled{
     background:rgba(255,255,255,0.10); color:#8f9dcc; box-shadow:none; cursor:not-allowed;
   }
   .special-btn:disabled:active{transform:none;}
 
-  /* sparkle badge — shows once a real CPX survey is ready, blinks to draw attention */
+  /* loading dots animation for "Task loading..." */
+  .loading-dots::after{
+    content:'.'; animation: loadingDots 1.2s steps(4,end) infinite;
+  }
+  @keyframes loadingDots{
+    0%{content:'.';} 25%{content:'..';} 50%{content:'...';} 75%{content:'';} 100%{content:'.';}
+  }
+
   .special-sparkle{
     position:relative; z-index:1; flex-shrink:0; font-size:15px;
     margin-inline-end:-2px; display:none; line-height:1;
@@ -224,7 +240,6 @@
     --adsgram-task-icon-title-gap: 12px;
     --adsgram-task-button-width: auto;
   }
-  .ag-task-reward{font-size:11px; font-weight:800; color:var(--gold-deep);}
   .ag-task-btn{
     border:none; font-family:inherit; font-weight:800; font-size:11px;
     padding:9px 14px; border-radius:12px;
@@ -283,8 +298,6 @@
   .task-info{flex:1; min-width:0;}
   .task-title{font-size:13px; font-weight:700; margin-bottom:3px;}
   .task-meta{display:flex; align-items:center; gap:6px; font-size:11px; color:var(--ink-soft);}
-  .task-reward{display:flex; align-items:center; gap:3px; font-weight:800; color:var(--gold-deep);}
-  .task-sep{opacity:0.4;}
 
   .task-btn{
     border:none; font-family:inherit; font-weight:800; font-size:11px;
@@ -318,6 +331,39 @@
   @keyframes confettiFall{
     0%{opacity:1; transform:translate(0,0) rotate(0deg);}
     100%{opacity:0; transform:translate(var(--dx), var(--dy)) rotate(var(--rot));}
+  }
+
+  /* ---------- Referral / gift modal ---------- */
+  .modal-overlay{
+    position:fixed; inset:0; background:rgba(10,16,40,0.55); backdrop-filter:blur(3px);
+    display:none; align-items:center; justify-content:center; z-index:200; padding:16px;
+  }
+  .modal-overlay.show{display:flex; animation: fadeSlide .2s ease;}
+  .modal-card{
+    width:100%; max-width:360px; background:var(--white); border-radius:22px;
+    padding:20px 18px; box-shadow:0 24px 60px -20px rgba(15,32,80,0.55);
+  }
+  .modal-title{font-size:16px; font-weight:800; margin-bottom:4px; text-align:center;}
+  .modal-sub{font-size:11.5px; color:var(--ink-soft); text-align:center; margin-bottom:16px;}
+  .gift-grid{display:flex; gap:10px; margin-bottom:14px;}
+  .gift-option{
+    flex:1; display:flex; flex-direction:column; align-items:center; gap:6px;
+    border:1.5px solid #e7ecf7; border-radius:16px; padding:14px 8px; cursor:pointer;
+    background:#f7f9fe; transition: transform .15s ease, border-color .15s ease;
+  }
+  .gift-option:active{transform:scale(0.95);}
+  .gift-option .gift-emoji{font-size:30px;}
+  .gift-option .gift-name{font-size:11.5px; font-weight:800;}
+  .gift-option .gift-price{font-size:10.5px; color:var(--ink-soft); font-weight:700;}
+  .share-ref-btn{
+    display:block; width:100%; border:none; font-family:inherit; font-weight:800; font-size:12.5px;
+    padding:11px; border-radius:14px; cursor:pointer; margin-bottom:8px;
+    background:linear-gradient(135deg, var(--blue-700), var(--blue-500)); color:#fff;
+  }
+  .share-ref-btn:active{transform:scale(0.97);}
+  .modal-close{
+    display:block; width:100%; border:none; font-family:inherit; font-weight:700; font-size:12px;
+    padding:10px; border-radius:14px; cursor:pointer; background:#eef1f9; color:var(--ink-soft);
   }
 
   @media (prefers-reduced-motion: reduce){
@@ -383,7 +429,9 @@
 
     <button class="claim-btn locked" id="claimBtn">🔒 Minimum withdrawal: 15 stars</button>
     <div class="claim-caption" id="claimCaption">15 points until claiming 15 stars</div>
-    <div class="claim-note" id="claimNote">To withdraw, invite <b>3 friends</b> first 👥</div>
+
+    <!-- referral note: now clickable, shows live X/3 progress -->
+    <div class="claim-note" id="claimNote">To withdraw, invite <b><span id="refCount">0</span>/3 friends</b> 👥</div>
   </div>
 
   <!-- SPECIAL TASK -->
@@ -396,7 +444,7 @@
       <div class="special-icon">🌌</div>
       <div class="special-info">
         <div class="special-title" id="specialTitle">Survey</div>
-        <div class="special-meta"><span class="special-reward" id="specialReward">+2 ⭐</span></div>
+        <div class="special-meta" id="specialMeta"></div>
       </div>
       <span class="special-sparkle" id="specialSparkle">✨</span>
       <button class="special-btn" id="specialBtn" disabled>...</button>
@@ -416,6 +464,28 @@
 
 </div>
 
+<!-- Referral / gift modal -->
+<div class="modal-overlay" id="refModalOverlay">
+  <div class="modal-card">
+    <div class="modal-title" id="refModalTitle">🎁 You unlocked a gift!</div>
+    <div class="modal-sub" id="refModalSub">3/3 friends invited — pick a Telegram gift to redeem</div>
+    <div class="gift-grid">
+      <div class="gift-option" id="giftTeddy">
+        <div class="gift-emoji">🧸</div>
+        <div class="gift-name" id="giftTeddyName">Teddy Bear</div>
+        <div class="gift-price">Telegram Gift</div>
+      </div>
+      <div class="gift-option" id="giftRose">
+        <div class="gift-emoji">🌹</div>
+        <div class="gift-name" id="giftRoseName">Rose</div>
+        <div class="gift-price">Telegram Gift</div>
+      </div>
+    </div>
+    <button class="share-ref-btn" id="shareRefBtn">🔗 <span id="shareRefLabel">Share referral code</span></button>
+    <button class="modal-close" id="refModalClose">Close</button>
+  </div>
+</div>
+
 <script>
   // ---------- i18n ----------
   const translations = {
@@ -428,16 +498,21 @@
       claimLocked: "🔒 Minimum withdrawal: 15 stars",
       claimReady: n => `Withdraw ${n} stars ⭐`,
       claimCaption: remaining => `${remaining} points until claiming 15 stars`,
-      claimNote: `To withdraw, invite <b>3 friends</b> first 👥`,
+      refNote: `To withdraw, invite <b><span id="refCount">{count}</span>/3 friends</b> 👥`,
+      refComplete: `🎁 Gift unlocked — tap to claim!`,
       specialLabel: "Special task",
       sectionTitle: "Regular tasks",
       activeLabel: "active",
-      taskPrefix: "Task",
       start: "Start",
       claim: "Claim",
-      adRewardedTitle: "Watch an ad",
-      cpxSurveyName: "Complete a survey",
-      cpxWaiting: "No survey available right now",
+      taskLoading: "Task loading",
+      cpxWaitingMeta: "checking for available surveys...",
+      modalTitle: "🎁 You unlocked a gift!",
+      modalSub: "3/3 friends invited — pick a Telegram gift to redeem",
+      teddyName: "Teddy Bear",
+      roseName: "Rose",
+      shareRef: "Share referral code",
+      modalClose: "Close",
       durations: {sec4:"4 sec", sec5:"5 sec", sec7:"7 sec", sec9:"9 sec", sec12:"12 sec", sec15:"15 sec"},
       disclosure: `After reaching <b>15 stars</b>, withdrawal requires <b>3 referrals</b>. Also, earnings per task get <b>smaller the more tasks you complete in a row</b>.`
     },
@@ -450,16 +525,21 @@
       claimLocked: "🔒 Минимальный вывод: 15 звёзд",
       claimReady: n => `Вывести ${n} звёзд ⭐`,
       claimCaption: remaining => `${remaining} очков до вывода 15 звёзд`,
-      claimNote: `Чтобы вывести, сначала пригласи <b>3 друзей</b> 👥`,
+      refNote: `Чтобы вывести, сначала пригласи <b><span id="refCount">{count}</span>/3 друзей</b> 👥`,
+      refComplete: `🎁 Подарок открыт — нажми, чтобы забрать!`,
       specialLabel: "Особое задание",
       sectionTitle: "Обычные задания",
       activeLabel: "активно",
-      taskPrefix: "Задание",
       start: "Начать",
       claim: "Забрать",
-      adRewardedTitle: "Посмотреть рекламу",
-      cpxSurveyName: "Пройти опрос",
-      cpxWaiting: "Сейчас нет доступного опроса",
+      taskLoading: "Загрузка задания",
+      cpxWaitingMeta: "проверяем доступные опросы...",
+      modalTitle: "🎁 Подарок открыт!",
+      modalSub: "Приглашено 3/3 друзей — выбери подарок Telegram",
+      teddyName: "Мишка Тедди",
+      roseName: "Роза",
+      shareRef: "Поделиться реферальным кодом",
+      modalClose: "Закрыть",
       durations: {sec4:"4 сек", sec5:"5 сек", sec7:"7 сек", sec9:"9 сек", sec12:"12 сек", sec15:"15 сек"},
       disclosure: `После достижения <b>15 звёзд</b> для вывода нужно <b>3 реферала</b>. Также награда за задание <b>уменьшается, чем больше заданий подряд вы выполняете</b>.`
     }
@@ -472,28 +552,48 @@
   let todayEarned = 0;
   const CLAIM_MIN = 15;
   const SPECIAL_REWARD = 2;
+  const REFERRAL_GOAL = 3;
+  let referralCount = 0;
+  let referredBy = null;          // telegram_id of whoever invited this user (if any)
+  let hasCompletedSpecialTaskOnce = false; // used to trigger the referral credit
 
   // ---------------------------------------------------------------------------
   // Telegram user (real id inside Telegram, mock id outside for local testing)
   // ---------------------------------------------------------------------------
   let userInfo = { id: 900000000 + Math.floor(Math.random() * 90000000), first_name: "Guest", username: "" };
+  let startParam = null; // e.g. "ref_123456789" from the deep link, if any
   (function loadRealTelegramUser() {
     try {
       const tg = window.Telegram && window.Telegram.WebApp;
       if (!tg) { console.log("⚠️ Outside Telegram — using a mock id for testing"); return; }
       tg.ready(); tg.expand();
       const u = tg.initDataUnsafe && tg.initDataUnsafe.user;
+      startParam = (tg.initDataUnsafe && tg.initDataUnsafe.start_param) || null;
       if (!u || !u.id) { console.log("⚠️ No initData.user — using a mock id"); return; }
       userInfo = { id: u.id, first_name: u.first_name || "", last_name: u.last_name || "", username: u.username || "", is_premium: !!u.is_premium };
-      console.log("✅ Real Telegram user loaded | id:", userInfo.id);
+      console.log("✅ Real Telegram user loaded | id:", userInfo.id, "| start_param:", startParam);
     } catch (err) { console.log("⚠️ Error reading Telegram initData:", err); }
   })();
 
+  // TODO: replace with your bot's real username so the referral link/deep-link works
+  const BOT_USERNAME = "YourBotUsername";
+  function getReferralLink(){
+    return `https://t.me/${BOT_USERNAME}?start=ref_${userInfo.id}`;
+  }
+
   // ---------------------------------------------------------------------------
   // Supabase — same backend project as Coin-Earn. Only the columns this app
-  // actually uses are touched (telegram_id, stars, ads_watched); every other
-  // Coin-Earn-only column (wheel effects, referral gifts, games, etc.) is left
-  // alone/untouched by this app.
+  // actually uses are touched (telegram_id, stars, ads_watched, and the new
+  // referral columns below); every other Coin-Earn-only column is left alone.
+  //
+  // ⚠️ ASSUMPTION — please double check these column names exist on "users"
+  // (create them if they don't, all nullable / default 0 / default false):
+  //   referred_by            bigint   -> telegram_id of the inviter
+  //   referral_count         int4     -> confirmed referrals for this user (default 0)
+  //   special_task_done      bool     -> true once THIS user has completed one
+  //                                      special (CPX) task, ever (default false)
+  //   referral_credited      bool     -> true once this user has already
+  //                                      credited their inviter (prevents double count)
   // ---------------------------------------------------------------------------
   const SUPABASE_URL = "https://dppezqmhagqbpcemftyx.supabase.co";
   const SUPABASE_ANON_KEY = "sb_publishable_JxH_z3TTI3udozdnwtK2vw_vfP_9RsK";
@@ -506,12 +606,21 @@
     if (!supabaseClient) return;
     try {
       const { data: existing, error: selErr } = await supabaseClient
-        .from("users").select("telegram_id, stars, ads_watched")
+        .from("users").select("telegram_id, stars, ads_watched, referred_by, referral_count, special_task_done")
         .eq("telegram_id", userInfo.id).maybeSingle();
       if (selErr) throw selErr;
       if (existing) {
         totalStars = Number(existing.stars) || 0;
+        referralCount = Number(existing.referral_count) || 0;
+        referredBy = existing.referred_by || null;
+        hasCompletedSpecialTaskOnce = !!existing.special_task_done;
         return;
+      }
+      // brand new user — if they arrived via a referral link, remember who invited them
+      let refBy = null;
+      if (startParam && startParam.startsWith('ref_')) {
+        const parsedId = Number(startParam.replace('ref_', ''));
+        if (parsedId && parsedId !== userInfo.id) refBy = parsedId;
       }
       const { data: created, error: insErr } = await supabaseClient
         .from("users").insert({
@@ -520,12 +629,41 @@
           username: userInfo.username || null,
           stars: 0,
           ads_watched: 0,
+          referred_by: refBy,
+          referral_count: 0,
+          special_task_done: false,
         }).select().single();
       if (insErr) throw insErr;
       totalStars = Number(created.stars) || 0;
+      referredBy = created.referred_by || null;
+      referralCount = 0;
+      hasCompletedSpecialTaskOnce = false;
     } catch (err) {
       console.log("⚠️ loadOrCreateStarUser failed (app keeps working locally):", err.message || err);
     }
+  }
+
+  // Called once, the FIRST time this user ever completes a special (CPX) task.
+  // If they were referred by someone, that someone's referral_count goes +1.
+  async function creditReferrerIfEligible() {
+    if (hasCompletedSpecialTaskOnce) return; // already handled before
+    hasCompletedSpecialTaskOnce = true;
+    if (!supabaseClient) return;
+    try {
+      await supabaseClient.from("users")
+        .update({ special_task_done: true })
+        .eq("telegram_id", userInfo.id);
+      if (!referredBy) return;
+      // fetch inviter's current count, then increment (simple read-then-write;
+      // for high concurrency you'd want a Postgres function/RPC instead)
+      const { data: inviter, error: selErr } = await supabaseClient
+        .from("users").select("referral_count").eq("telegram_id", referredBy).maybeSingle();
+      if (selErr || !inviter) return;
+      const newCount = (Number(inviter.referral_count) || 0) + 1;
+      await supabaseClient.from("users")
+        .update({ referral_count: newCount })
+        .eq("telegram_id", referredBy);
+    } catch (err) { console.log("⚠️ creditReferrerIfEligible failed:", err.message || err); }
   }
 
   let starSyncTimer = null;
@@ -550,8 +688,9 @@
     if (!supabaseClient) return null;
     try {
       const { data, error } = await supabaseClient.from("users")
-        .select("stars").eq("telegram_id", userInfo.id).single();
+        .select("stars, referral_count").eq("telegram_id", userInfo.id).single();
       if (error) throw error;
+      if (data.referral_count != null) referralCount = Number(data.referral_count) || 0;
       return Number(data.stars) || 0;
     } catch (err) { console.log("⚠️ fetchLatestStarsFromServer failed:", err.message || err); return null; }
   }
@@ -568,19 +707,40 @@
   }
 
   // ---------------------------------------------------------------------------
-  // Adsgram — real blocks
+  // Ad networks
+  //
+  //  · RichAds (push-style CPC, richinfo.co/TelegramAdsController) is now the
+  //    PRIMARY network. It's a passive script — once initialize() runs it
+  //    injects its own push-style ads wherever it wants on the page; there's
+  //    no on-demand "show()" call and no documented ready/error event in
+  //    RichAds' public docs, so "loaded" here is tracked optimistically:
+  //      - script.onload + initialize() succeeding without throwing => active
+  //      - script.onerror, OR nothing happened within RICHADS_TIMEOUT_MS      => failed
+  //    ⚠️ TODO: if your RichAds account manager gives you a real ready/error
+  //    callback name, replace the timeout logic in initRichAds() with that —
+  //    it will make the fallback below far more accurate.
+  //
+  //  · Adsgram Interstitial ("block ad") — always present in the task list,
+  //    bottom slot, re-fetches a fresh ad on every click.
+  //
+  //  · Adsgram Rewarded video — NOT shown by default anymore. It only
+  //    appears as a temporary fallback card while RichAds hasn't loaded yet,
+  //    and gets removed the instant RichAds becomes active. Cooldown ~35s.
+  //
+  //  · The 3 Adsgram Task-widget blocks (offerwall-style) are unrelated to
+  //    this and stay as-is.
   // ---------------------------------------------------------------------------
-  const ADSGRAM_REWARDED_CONFIGS = [
-    { blockId: "39768", cooldownSec: 20 },
-    { blockId: "39769", cooldownSec: 20 },
-  ];
-  const ADSGRAM_INTERSTITIAL_CONFIG = { blockId: "int-40698", cooldownSec: 25 };
+  const ADSGRAM_REWARDED_CONFIG = { blockId: "39768", cooldownSec: 35 };
+  const ADSGRAM_BLOCK_CONFIG = { blockId: "int-40698", cooldownSec: 20 }; // "block ad", always bottom
+  const CROSS_LOCK_SECONDS = 7; // other ad button stays locked this long after an ad resolves
   const ADSGRAM_TASK_BLOCK_IDS = ["task-39639", "task-40700", "task-40701"];
+  const RICHADS_CONFIG = { pubId: "1016341", appId: "7972" };
+  const RICHADS_TIMEOUT_MS = 5000; // if not confirmed active by then, treat as failed and show fallback
 
   let adsgramControllers = {};
   function initAdsgramSdk() {
     if (!window.Adsgram) { setTimeout(initAdsgramSdk, 500); return; }
-    [...ADSGRAM_REWARDED_CONFIGS.map(c => c.blockId), ADSGRAM_INTERSTITIAL_CONFIG.blockId].forEach((blockId) => {
+    [ADSGRAM_REWARDED_CONFIG.blockId, ADSGRAM_BLOCK_CONFIG.blockId].forEach((blockId) => {
       if (!adsgramControllers[blockId]) adsgramControllers[blockId] = window.Adsgram.init({ blockId });
     });
   }
@@ -598,7 +758,343 @@
   }
 
   // ---------------------------------------------------------------------------
-  // CPX Research — real surveys, same publisher account as Coin-Earn
+  // RichAds — loaded dynamically so we can react to success/failure.
+  // richAdsState: 'loading' | 'active' | 'failed'
+  // ---------------------------------------------------------------------------
+  let richAdsState = 'loading';
+  let richAdsTimeoutHandle = null;
+  const richAdsStateListeners = []; // functions called with the new state
+
+  function onRichAdsStateChange(fn){ richAdsStateListeners.push(fn); }
+  function setRichAdsState(newState){
+    if(richAdsState === newState) return;
+    richAdsState = newState;
+    richAdsStateListeners.forEach(fn => fn(newState));
+  }
+
+  function initRichAds(){
+    const script = document.createElement('script');
+    script.src = "https://richinfo.co/richpartners/telegram/js/tg-ob.js";
+    script.onload = () => {
+      try {
+        window.TelegramAdsController = new TelegramAdsController();
+        window.TelegramAdsController.initialize(RICHADS_CONFIG);
+        clearTimeout(richAdsTimeoutHandle);
+        setRichAdsState('active');
+      } catch(err){
+        console.log('RichAds initialize failed:', err);
+        clearTimeout(richAdsTimeoutHandle);
+        setRichAdsState('failed');
+      }
+    };
+    script.onerror = () => {
+      console.log('RichAds script failed to load');
+      clearTimeout(richAdsTimeoutHandle);
+      setRichAdsState('failed');
+    };
+    document.head.appendChild(script);
+
+    richAdsTimeoutHandle = setTimeout(() => {
+      if(richAdsState === 'loading') setRichAdsState('failed');
+    }, RICHADS_TIMEOUT_MS);
+  }
+
+  // ---------------------------------------------------------------------------
+  // Random per-card task numbers (e.g. "Task #46896*"), stable for the session
+  // ---------------------------------------------------------------------------
+  function randomTaskNumber(){
+    return Math.floor(10000 + Math.random() * 89999);
+  }
+
+  const el = id => document.getElementById(id);
+  const starFillRect = el('starFillRect');
+  const starNumber = el('starNumber');
+  const gaugeCaption = el('gaugeCaption');
+  const claimBtn = el('claimBtn');
+  const claimCaption = el('claimCaption');
+  const claimNote = el('claimNote');
+  const todayVal = el('todayVal');
+  const todayPrefixEl = el('todayPrefix');
+  const taskCountEl = el('taskCount');
+  const langToggle = el('langToggle');
+  const taskList = el('taskList');
+  const specialTask = el('specialTask');
+  const specialTitle = el('specialTitle');
+  const specialMeta = el('specialMeta');
+  const specialBtn = el('specialBtn');
+  const specialSparkle = el('specialSparkle');
+  const disclosureBanner = el('disclosureBanner');
+  const refModalOverlay = el('refModalOverlay');
+  const refModalTitle = el('refModalTitle');
+  const refModalSub = el('refModalSub');
+  const giftTeddy = el('giftTeddy');
+  const giftRose = el('giftRose');
+  const giftTeddyName = el('giftTeddyName');
+  const giftRoseName = el('giftRoseName');
+  const shareRefBtn = el('shareRefBtn');
+  const shareRefLabel = el('shareRefLabel');
+  const refModalClose = el('refModalClose');
+
+  const fmtNum = n => {
+    const rounded = Math.round(n*100)/100;
+    return Number.isInteger(rounded) ? rounded.toString() : rounded.toFixed(2).replace(/0+$/,'').replace(/\.$/,'');
+  };
+  function currentRate(){
+    if(totalStars >= 14) return 0.10;
+    if(totalStars >= 13) return 0.18;
+    if(totalStars >= 10) return 0.25;
+    if(totalStars >= 8)  return 0.30;
+    return 0.5;
+  }
+
+  function grantStars(amount, anchorEl, network, externalId){
+    const prevFloor = Math.floor(totalStars);
+    flyReward(anchorEl, amount);
+    burstConfetti(anchorEl);
+    totalStars += amount;
+    todayEarned += amount;
+    renderGauge();
+    const newFloor = Math.floor(totalStars);
+    if(newFloor > prevFloor) popStarNumber();
+    logAdTransaction(network, externalId, amount);
+    queueStarSync();
+  }
+
+  function updateTaskCount(){
+    const active = taskList.querySelectorAll('.task:not(.hidden-task):not(.done)').length;
+    taskCountEl.textContent = active;
+  }
+
+  // ---------------------------------------------------------------------------
+  // Cross-lock helpers — when one ad plays, the OTHER ad button is disabled;
+  // once the first ad resolves (success or error) a 7s timer runs on the
+  // other button before it frees up again.
+  // ---------------------------------------------------------------------------
+  const adButtonRegistry = []; // { btn, getIdleLabel() }
+
+  function crossLockOthers(exceptBtn){
+    adButtonRegistry.forEach(({btn}) => {
+      if(btn === exceptBtn) return;
+      if(btn.dataset.personalCooldown === '1') return; // already showing its own cooldown, leave it
+      btn.dataset.crossLocked = '1';
+      btn.disabled = true;
+    });
+  }
+
+  function startCrossLockCountdown(exceptBtn){
+    adButtonRegistry.forEach(({btn, getIdleLabel}) => {
+      if(btn === exceptBtn) return;
+      if(btn.dataset.personalCooldown === '1') return; // own cooldown takes priority, its own timer will free it
+      let remaining = CROSS_LOCK_SECONDS;
+      btn.disabled = true;
+      btn.textContent = `${remaining}s`;
+      const timer = setInterval(() => {
+        remaining--;
+        if(remaining <= 0){
+          clearInterval(timer);
+          btn.dataset.crossLocked = '';
+          if(btn.dataset.personalCooldown !== '1'){
+            btn.disabled = false;
+            btn.textContent = getIdleLabel();
+          }
+        } else {
+          btn.textContent = `${remaining}s`;
+        }
+      }, 1000);
+    });
+  }
+
+  // ---- Rewarded video card (Adsgram) — FALLBACK ONLY, shown while RichAds
+  // hasn't loaded, removed the instant RichAds becomes active ----
+  function buildRewardedCard(icon, emoji){
+    const taskNum = randomTaskNumber();
+    const task = document.createElement('div');
+    task.className = 'task';
+    task.dataset.fallbackCard = '1';
+    task.dataset.blockId = ADSGRAM_REWARDED_CONFIG.blockId;
+    task.innerHTML = `
+      <div class="task-icon icon-${icon}">${emoji}</div>
+      <div class="task-info">
+        <div class="task-title">Task #${taskNum}*</div>
+      </div>
+      <button class="task-btn">${translations[currentLang].start}</button>
+    `;
+    const btn = task.querySelector('.task-btn');
+    const getIdleLabel = () => translations[currentLang].start;
+    adButtonRegistry.push({ btn, getIdleLabel });
+
+    btn.addEventListener('click', () => {
+      if(btn.disabled) return;
+      btn.disabled = true;
+      btn.dataset.personalCooldown = '1';
+      btn.textContent = '...';
+      crossLockOthers(btn);
+
+      const finish = (success) => {
+        if(success){
+          const reward = currentRate();
+          grantStars(reward, btn, 'adsgram_rewarded', ADSGRAM_REWARDED_CONFIG.blockId);
+        }
+        let remaining = ADSGRAM_REWARDED_CONFIG.cooldownSec;
+        btn.textContent = success ? '✓' : getIdleLabel();
+        const personalTimer = setInterval(() => {
+          remaining--;
+          if(remaining <= 0){
+            clearInterval(personalTimer);
+            btn.dataset.personalCooldown = '';
+            if(btn.dataset.crossLocked !== '1'){
+              btn.disabled = false;
+              btn.textContent = getIdleLabel();
+            }
+          } else {
+            btn.textContent = `${remaining}s`;
+          }
+        }, 1000);
+        startCrossLockCountdown(btn);
+      };
+
+      showAdsgramAd(ADSGRAM_REWARDED_CONFIG.blockId, () => finish(true), () => finish(false));
+    });
+    return task;
+  }
+
+  // ---- Block ad card (Adsgram Interstitial), always last, always reloads a
+  // fresh block ad on click, falls back to the rewarded slot's network if
+  // no block ad is available ----
+  function buildBlockAdCard(){
+    const taskNum = randomTaskNumber();
+    const task = document.createElement('div');
+    task.className = 'task';
+    task.dataset.blockId = ADSGRAM_BLOCK_CONFIG.blockId;
+    task.innerHTML = `
+      <div class="task-icon icon-gold">🎬</div>
+      <div class="task-info">
+        <div class="task-title">Task #${taskNum}*</div>
+      </div>
+      <button class="task-btn">${translations[currentLang].start}</button>
+    `;
+    const btn = task.querySelector('.task-btn');
+    const getIdleLabel = () => translations[currentLang].start;
+    adButtonRegistry.push({ btn, getIdleLabel });
+
+    btn.addEventListener('click', () => {
+      if(btn.disabled) return;
+      btn.disabled = true;
+      btn.dataset.personalCooldown = '1';
+      btn.textContent = '...';
+      crossLockOthers(btn);
+
+      const finish = (success) => {
+        if(success){
+          const reward = currentRate();
+          grantStars(reward, btn, 'adsgram_block', ADSGRAM_BLOCK_CONFIG.blockId);
+        }
+        let remaining = ADSGRAM_BLOCK_CONFIG.cooldownSec;
+        btn.textContent = success ? '✓' : getIdleLabel();
+        const personalTimer = setInterval(() => {
+          remaining--;
+          if(remaining <= 0){
+            clearInterval(personalTimer);
+            btn.dataset.personalCooldown = '';
+            if(btn.dataset.crossLocked !== '1'){
+              btn.disabled = false;
+              btn.textContent = getIdleLabel();
+            }
+          } else {
+            btn.textContent = `${remaining}s`;
+          }
+        }, 1000);
+        startCrossLockCountdown(btn);
+      };
+
+      // Try a fresh Adsgram interstitial ("block") ad; if Adsgram itself has
+      // nothing to show, fall back to the rewarded slot's network so the
+      // click isn't wasted (RichAds is passive/push-style, not something we
+      // call on demand here — see the RichAds section above).
+      showAdsgramAd(ADSGRAM_BLOCK_CONFIG.blockId, () => finish(true), () => {
+        showAdsgramAd(ADSGRAM_REWARDED_CONFIG.blockId, () => finish(true), () => finish(false));
+      });
+    });
+    return task;
+  }
+
+  // ---- Task-widget card (Adsgram <adsgram-task>) — unchanged offerwall tasks ----
+  function buildTaskWidgetCard(blockId){
+    const wrap = document.createElement('div');
+    wrap.className = 'task ag-task-wrap';
+    wrap.dataset.blockId = blockId;
+    wrap.innerHTML = `
+      <adsgram-task class="ag-task-el" data-block-id="${blockId}" data-debug="false" data-debug-console="false">
+        <div slot="button" class="ag-task-btn">${translations[currentLang].start}</div>
+        <div slot="claim" class="ag-task-btn ag-task-btn-claim">${translations[currentLang].claim}</div>
+        <div slot="done" class="ag-task-btn ag-task-btn-done">✓</div>
+      </adsgram-task>
+    `;
+    const widgetEl = wrap.querySelector('.ag-task-el');
+    let rewarded = false;
+    widgetEl.addEventListener('reward', () => {
+      if(rewarded) return;
+      rewarded = true;
+      const reward = currentRate();
+      grantStars(reward, widgetEl, 'adsgram_task', blockId);
+    });
+    widgetEl.addEventListener('onBannerNotFound', () => {
+      wrap.classList.add('hidden-task');
+      updateTaskCount();
+    });
+    widgetEl.addEventListener('onError', (e) => console.log('Adsgram task error:', e.detail));
+
+    return wrap;
+  }
+
+  let fallbackRewardedCard = null; // DOM node, only exists while RichAds is down
+
+  function buildRegularTasks(){
+    taskList.innerHTML = '';
+    adButtonRegistry.length = 0;
+    fallbackRewardedCard = null;
+    ADSGRAM_TASK_BLOCK_IDS.forEach((blockId) => {
+      taskList.appendChild(buildTaskWidgetCard(blockId));
+    });
+    taskList.appendChild(buildBlockAdCard()); // block ad always present, last/bottom
+    updateTaskCount();
+  }
+
+  function showFallbackRewardedCard(){
+    if(fallbackRewardedCard) return; // already showing
+    fallbackRewardedCard = buildRewardedCard('blue', '📺');
+    fallbackRewardedCard.classList.add('entering');
+    taskList.insertBefore(fallbackRewardedCard, taskList.firstChild); // above the offerwall tasks
+    updateTaskCount();
+  }
+
+  function hideFallbackRewardedCard(){
+    if(!fallbackRewardedCard) return;
+    const idx = adButtonRegistry.findIndex(r => fallbackRewardedCard.contains(r.btn));
+    if(idx !== -1) adButtonRegistry.splice(idx, 1);
+    fallbackRewardedCard.remove();
+    fallbackRewardedCard = null;
+    updateTaskCount();
+  }
+
+  // React to RichAds state: while it's down, show the rewarded fallback;
+  // the instant it becomes active, swap it away immediately.
+  onRichAdsStateChange((state) => {
+    if(state === 'active'){
+      hideFallbackRewardedCard();
+    } else if(state === 'failed'){
+      showFallbackRewardedCard();
+    }
+  });
+
+  // ---------------------------------------------------------------------------
+  // Special task (galaxy slot) — real CPX Research survey.
+  // Button starts DISABLED with a "Task loading..." animation. It only becomes
+  // enabled + gets the blinking ✨ badge once a real survey is fetched from
+  // CPX, and shows that survey's own name/info. Stars are NOT granted on
+  // click — CPX confirms completion server-side (postback), so we poll the
+  // DB afterwards and only reward once the balance actually moved. The FIRST
+  // time this ever succeeds for a given user, we also credit their referrer.
   // ---------------------------------------------------------------------------
   const CPX_CONFIG = {
     appId: "34595",
@@ -671,189 +1167,39 @@
     return cachedUserIp;
   }
 
-  const el = id => document.getElementById(id);
-  const starFillRect = el('starFillRect');
-  const starNumber = el('starNumber');
-  const gaugeCaption = el('gaugeCaption');
-  const claimBtn = el('claimBtn');
-  const claimCaption = el('claimCaption');
-  const claimNote = el('claimNote');
-  const todayVal = el('todayVal');
-  const todayPrefixEl = el('todayPrefix');
-  const taskCountEl = el('taskCount');
-  const langToggle = el('langToggle');
-  const taskList = el('taskList');
-  const specialTask = el('specialTask');
-  const specialTitle = el('specialTitle');
-  const specialReward = el('specialReward');
-  const specialBtn = el('specialBtn');
-  const specialSparkle = el('specialSparkle');
-  const disclosureBanner = el('disclosureBanner');
-
-  const fmtNum = n => {
-    const rounded = Math.round(n*100)/100;
-    return Number.isInteger(rounded) ? rounded.toString() : rounded.toFixed(2).replace(/0+$/,'').replace(/\.$/,'');
-  };
-  function currentRate(){
-    if(totalStars >= 14) return 0.10;
-    if(totalStars >= 13) return 0.18;
-    if(totalStars >= 10) return 0.25;
-    return 0.5;
-  }
-
-  // ---------------------------------------------------------------------------
-  // Regular tasks — real ad units (no more random/simulated cards):
-  //  · 2 Adsgram Rewarded video blocks (39768, 39769)
-  //  · 1 Adsgram Interstitial block (int-40698)
-  //  · 3 Adsgram Task-widget blocks (task-39639, task-40700, task-40701)
-  // Reward for every real ad = currentRate() — the same shrinking-per-round rate
-  // the star gauge already used, so the economy stays exactly as designed.
-  // ---------------------------------------------------------------------------
-  function grantStars(amount, anchorEl, network, externalId){
-    const prevFloor = Math.floor(totalStars);
-    flyReward(anchorEl, amount);
-    burstConfetti(anchorEl);
-    totalStars += amount;
-    todayEarned += amount;
-    renderGauge();
-    renderRegularRewards();
-    const newFloor = Math.floor(totalStars);
-    if(newFloor > prevFloor) popStarNumber();
-    logAdTransaction(network, externalId, amount);
-    queueStarSync();
-  }
-
-  function updateTaskCount(){
-    const active = taskList.querySelectorAll('.task:not(.hidden-task):not(.done)').length;
-    taskCountEl.textContent = active;
-  }
-
-  function renderRegularRewards(){
-    document.querySelectorAll('#taskList [data-reward-label]').forEach(elx=>{
-      elx.textContent = `+${fmtNum(currentRate())} ⭐`;
-    });
-  }
-
-  // ---- Rewarded video card (Adsgram) ----
-  function buildRewardedCard(blockId, cooldownSec, icon, emoji){
-    const task = document.createElement('div');
-    task.className = 'task';
-    task.dataset.blockId = blockId;
-    task.innerHTML = `
-      <div class="task-icon icon-${icon}">${emoji}</div>
-      <div class="task-info">
-        <div class="task-title">${translations[currentLang].adRewardedTitle}</div>
-        <div class="task-meta"><span class="task-reward" data-reward-label>+${fmtNum(currentRate())} ⭐</span></div>
-      </div>
-      <button class="task-btn">${translations[currentLang].start}</button>
-    `;
-    const btn = task.querySelector('.task-btn');
-    btn.addEventListener('click', () => {
-      if(btn.disabled) return;
-      btn.disabled = true;
-      btn.textContent = '...';
-      showAdsgramAd(blockId, () => {
-        const reward = currentRate();
-        grantStars(reward, btn, 'adsgram_rewarded', blockId);
-        btn.textContent = '✓';
-        let remaining = cooldownSec;
-        const cd = setInterval(() => {
-          remaining--;
-          if(remaining <= 0){
-            clearInterval(cd);
-            btn.disabled = false;
-            btn.textContent = translations[currentLang].start;
-          } else {
-            btn.textContent = `${remaining}s`;
-          }
-        }, 1000);
-      }, () => {
-        btn.disabled = false;
-        btn.textContent = translations[currentLang].start;
-      });
-    });
-    return task;
-  }
-
-  // ---- Interstitial card (Adsgram) ----
-  function buildInterstitialCard(){
-    return buildRewardedCard(ADSGRAM_INTERSTITIAL_CONFIG.blockId, ADSGRAM_INTERSTITIAL_CONFIG.cooldownSec, 'gold', '🎬');
-  }
-
-  // ---- Task-widget card (Adsgram <adsgram-task>) ----
-  function buildTaskWidgetCard(blockId){
-    const wrap = document.createElement('div');
-    wrap.className = 'task ag-task-wrap';
-    wrap.dataset.blockId = blockId;
-    wrap.innerHTML = `
-      <adsgram-task class="ag-task-el" data-block-id="${blockId}" data-debug="false" data-debug-console="false">
-        <span slot="reward" class="ag-task-reward"></span>
-        <div slot="button" class="ag-task-btn">${translations[currentLang].start}</div>
-        <div slot="claim" class="ag-task-btn ag-task-btn-claim">${translations[currentLang].claim}</div>
-        <div slot="done" class="ag-task-btn ag-task-btn-done">✓</div>
-      </adsgram-task>
-    `;
-    const rewardSlot = wrap.querySelector('.ag-task-reward');
-    if(rewardSlot) rewardSlot.textContent = `+${fmtNum(currentRate())} ⭐`;
-
-    const widgetEl = wrap.querySelector('.ag-task-el');
-    let rewarded = false;
-    widgetEl.addEventListener('reward', () => {
-      if(rewarded) return;
-      rewarded = true;
-      const reward = currentRate();
-      grantStars(reward, widgetEl, 'adsgram_task', blockId);
-    });
-    widgetEl.addEventListener('onBannerNotFound', () => {
-      wrap.classList.add('hidden-task');
-      updateTaskCount();
-    });
-    widgetEl.addEventListener('onError', (e) => console.log('Adsgram task error:', e.detail));
-
-    return wrap;
-  }
-
-  function buildRegularTasks(){
-    taskList.innerHTML = '';
-    ADSGRAM_REWARDED_CONFIGS.forEach((cfg, i) => {
-      taskList.appendChild(buildRewardedCard(cfg.blockId, cfg.cooldownSec, i === 0 ? 'blue' : 'pink', i === 0 ? '📺' : '🎥'));
-    });
-    taskList.appendChild(buildInterstitialCard());
-    ADSGRAM_TASK_BLOCK_IDS.forEach((blockId) => {
-      taskList.appendChild(buildTaskWidgetCard(blockId));
-    });
-    updateTaskCount();
-  }
-
-  // ---------------------------------------------------------------------------
-  // Special task (galaxy slot) — real CPX Research survey.
-  // Button starts DISABLED ("no survey yet"). It only becomes enabled + gets the
-  // blinking ✨ badge once a real survey is actually fetched from CPX. Coins are
-  // NOT granted on click — CPX confirms completion server-side (postback into
-  // the same Supabase project), so we poll the DB afterwards and only reward
-  // once the balance actually moved, exactly like Coin-Earn's CPX flow.
-  // ---------------------------------------------------------------------------
-  let currentCpxSurvey = null; // {id, href, loi}
+  let currentCpxSurvey = null; // {id, href, loi, name}
   let cpxState = 'loading'; // loading | ready | pending | empty
 
   function renderSpecialTaskState(){
     const t = translations[currentLang];
-    specialReward.textContent = `+${fmtNum(SPECIAL_REWARD)} ⭐`;
-    if(cpxState === 'ready'){
-      specialTitle.textContent = t.cpxSurveyName;
+    if(cpxState === 'ready' && currentCpxSurvey){
+      // Show the survey's OWN name/info if CPX provided one; fall back gracefully otherwise.
+      // ⚠️ NOTE: CPX's exact field name for the survey's title isn't guaranteed by their docs —
+      // this tries the common possibilities in order. Check the console log below against
+      // your real API response and adjust the field name if needed.
+      const s = currentCpxSurvey.raw || {};
+      const surveyName = s.name || s.title || s.survey_name || `Survey #${currentCpxSurvey.id}`;
+      specialTitle.classList.remove('loading-dots');
+      specialTitle.textContent = surveyName;
+      const loiPart = currentCpxSurvey.loi ? `${currentCpxSurvey.loi} min · ` : '';
+      specialMeta.textContent = `${loiPart}+${fmtNum(SPECIAL_REWARD)} ⭐`;
       specialBtn.disabled = false;
       specialBtn.textContent = t.start;
       specialSparkle.classList.add('show');
       specialTask.classList.remove('done');
     } else if(cpxState === 'pending'){
-      specialTitle.textContent = t.cpxSurveyName;
+      specialTitle.classList.remove('loading-dots');
+      specialTitle.textContent = (currentCpxSurvey && currentCpxSurvey.raw && (currentCpxSurvey.raw.name || currentCpxSurvey.raw.title)) || t.taskLoading;
+      specialMeta.textContent = '';
       specialBtn.disabled = true;
       specialBtn.textContent = '⏳';
       specialSparkle.classList.remove('show');
       specialTask.classList.add('done');
     } else {
-      // loading or empty — nothing real to offer right now
-      specialTitle.textContent = t.cpxWaiting;
+      // loading or empty — "Task loading..." with animated dots
+      specialTitle.classList.add('loading-dots');
+      specialTitle.textContent = t.taskLoading;
+      specialMeta.textContent = t.cpxWaitingMeta;
       specialBtn.disabled = true;
       specialBtn.textContent = '...';
       specialSparkle.classList.remove('show');
@@ -869,7 +1215,8 @@
       const data = await res.json();
       if(data && data.status === 'success' && data.surveys && data.surveys.length){
         const s = data.surveys[0];
-        currentCpxSurvey = { id: s.id, href: s.href || s.href_new || '', loi: s.loi };
+        console.log('CPX survey object (check field names here):', s);
+        currentCpxSurvey = { id: s.id, href: s.href || s.href_new || '', loi: s.loi, raw: s };
         cpxState = 'ready';
       } else {
         currentCpxSurvey = null;
@@ -902,11 +1249,11 @@
         clearInterval(cpxPollTimer);
         cpxPollTimer = null;
         cpxState = 'empty';
+        creditReferrerIfEligible(); // first-ever special task completion -> credit inviter
         fetchAndRenderCpxTask();
       } else if(pollCount >= MAX_POLLS){
         clearInterval(cpxPollTimer);
         cpxPollTimer = null;
-        // fall back to whatever CPX has next, keep waiting UI otherwise
         fetchAndRenderCpxTask();
       }
     }, POLL_INTERVAL_MS);
@@ -926,6 +1273,70 @@
     startCpxRewardPolling();
   });
 
+  // ---------------------------------------------------------------------------
+  // Referral note (click -> share link, or open gift modal at 3/3)
+  // ---------------------------------------------------------------------------
+  function renderReferralNote(){
+    const t = translations[currentLang];
+    const capped = Math.min(referralCount, REFERRAL_GOAL);
+    if(capped >= REFERRAL_GOAL){
+      claimNote.classList.add('ref-complete');
+      claimNote.textContent = t.refComplete;
+    } else {
+      claimNote.classList.remove('ref-complete');
+      claimNote.innerHTML = t.refNote.replace('{count}', capped);
+    }
+  }
+
+  function openReferralLink(){
+    const tg = window.Telegram && window.Telegram.WebApp;
+    const link = getReferralLink();
+    if(tg && tg.openTelegramLink){
+      tg.openTelegramLink(`https://t.me/share/url?url=${encodeURIComponent(link)}`);
+    } else {
+      window.open(link, '_blank');
+    }
+  }
+
+  function openGiftModal(){
+    const t = translations[currentLang];
+    refModalTitle.textContent = t.modalTitle;
+    refModalSub.textContent = t.modalSub;
+    giftTeddyName.textContent = t.teddyName;
+    giftRoseName.textContent = t.roseName;
+    shareRefLabel.textContent = t.shareRef;
+    refModalClose.textContent = t.modalClose;
+    refModalOverlay.classList.add('show');
+  }
+  function closeGiftModal(){ refModalOverlay.classList.remove('show'); }
+
+  claimNote.addEventListener('click', () => {
+    if(referralCount >= REFERRAL_GOAL){
+      openGiftModal();
+    } else {
+      openReferralLink();
+    }
+  });
+  refModalClose.addEventListener('click', closeGiftModal);
+  refModalOverlay.addEventListener('click', (e) => { if(e.target === refModalOverlay) closeGiftModal(); });
+  shareRefBtn.addEventListener('click', openReferralLink);
+
+  // TODO: purchasing an actual Telegram Gift (Teddy Bear / Rose) requires a
+  // real Telegram Bot API invoice generated SERVER-SIDE (sendGift / invoice
+  // link) — a Mini App's front-end JS can't create that invoice on its own
+  // for security reasons. Wire these two handlers to call your backend
+  // (e.g. a Supabase Edge Function) that returns an invoice link, then open
+  // it with Telegram.WebApp.openInvoice(link, callback).
+  giftTeddy.addEventListener('click', () => {
+    console.log('TODO: call your backend to generate a Teddy Bear gift invoice for', userInfo.id);
+    // const tg = window.Telegram && window.Telegram.WebApp;
+    // fetch('/your-backend/create-gift-invoice', {method:'POST', body: JSON.stringify({telegram_id:userInfo.id, gift:'teddy'})})
+    //   .then(r => r.json()).then(({invoiceLink}) => tg.openInvoice(invoiceLink, (status) => { ... }));
+  });
+  giftRose.addEventListener('click', () => {
+    console.log('TODO: call your backend to generate a Rose gift invoice for', userInfo.id);
+  });
+
   // ---------- language ----------
   function applyStaticText(){
     const t = translations[currentLang];
@@ -940,11 +1351,10 @@
     langToggle.textContent = currentLang === 'en' ? '🇷🇺' : '🇬🇧';
     disclosureBanner.innerHTML = t.disclosure;
 
-    document.querySelectorAll('#taskList .task:not(.ag-task-wrap) .task-title').forEach(elx=>{
-      elx.textContent = t.adRewardedTitle;
-    });
-    document.querySelectorAll('#taskList .task:not(.ag-task-wrap) .task-btn:not(:disabled)').forEach(btn=>{
-      if(!/^\d+s$/.test(btn.textContent)) btn.textContent = t.start;
+    document.querySelectorAll('#taskList .task:not(.ag-task-wrap) .task-btn').forEach(btn=>{
+      if(!/^\d+s$/.test(btn.textContent) && btn.textContent !== '✓' && btn.textContent !== '...'){
+        btn.textContent = t.start;
+      }
     });
     document.querySelectorAll('#taskList .ag-task-btn:not(.ag-task-btn-claim):not(.ag-task-btn-done)').forEach(btn=>{
       btn.textContent = t.start;
@@ -952,8 +1362,8 @@
     document.querySelectorAll('#taskList .ag-task-btn-claim').forEach(btn=>{
       btn.textContent = t.claim;
     });
-    renderRegularRewards();
     renderSpecialTaskState();
+    renderReferralNote();
     renderGauge();
   }
 
@@ -980,6 +1390,7 @@
       claimBtn.classList.add('ready');
       claimBtn.textContent = t.claimReady(CLAIM_MIN);
       claimCaption.style.display = 'none';
+      claimNote.classList.add('show');
     } else {
       claimBtn.classList.add('locked');
       claimBtn.classList.remove('ready');
@@ -987,14 +1398,25 @@
       claimCaption.style.display = 'block';
       const remaining = Math.max(0, CLAIM_MIN - totalStars);
       claimCaption.textContent = t.claimCaption(fmtNum(remaining));
+      claimNote.classList.remove('show');
     }
+    renderReferralNote();
   }
 
   claimBtn.addEventListener('click', ()=>{
     if(totalStars < CLAIM_MIN) return;
-    claimNote.innerHTML = translations[currentLang].claimNote;
-    claimNote.classList.add('show');
+    // withdrawal itself still gated behind 3/3 referrals — the note above
+    // already communicates progress and is clickable on its own.
+    if(referralCount < REFERRAL_GOAL){
+      claimNote.classList.add('show');
+    }
   });
+
+  function popStarNumber(){
+    starNumber.classList.remove('pop');
+    void starNumber.offsetWidth;
+    starNumber.classList.add('pop');
+  }
 
   // ---------- fx ----------
   function flyReward(anchor, amount){
@@ -1035,9 +1457,10 @@
     updateTaskCount();
 
     initAdsgramSdk();
-    renderSpecialTaskState(); // shows the disabled/loading state immediately
+    initRichAds();
+    renderSpecialTaskState(); // shows "Task loading..." immediately
 
-    await loadOrCreateStarUser(); // pulls real stars balance from Supabase, if configured
+    await loadOrCreateStarUser(); // pulls real stars + referral state from Supabase
     renderGauge();
 
     fetchAndRenderCpxTask();
